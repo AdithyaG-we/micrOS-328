@@ -21,31 +21,21 @@ void timer_init(void)
         system_ticks = 0;
     }
 
-    /* Stop Timer1 while configuring it. */
     TCCR1A = 0;
     TCCR1B = 0;
 
-    /* Reset the timer counter. */
     TCNT1 = 0;
 
-    /* Set the compare value for a 1 ms interval. */
     OCR1A = TIMER1_COMPARE;
 
-    /* Clear any pending Compare Match A interrupt flag. */
     TIFR1 = (1 << OCF1A);
 
-    /* Enable Timer1 Compare Match A interrupt. */
     TIMSK1 = (1 << OCIE1A);
 
-    /*
-     * Configure CTC mode and select a prescaler of 64.
-     * Writing CS12:CS10 as 011 selects the divide-by-64 clock.
-     */
     TCCR1B = (1 << WGM12) |
              (1 << CS11) |
              (1 << CS10);
 
-    /* Enable global interrupts. */
     sei();
 }
 

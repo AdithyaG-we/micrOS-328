@@ -1,34 +1,83 @@
-#define F_CPU 16000000UL
 #include <avr/io.h>
-#include <util/delay.h>
 #include <stdint.h>
+
 #include "timer.h"
-#define LED_TOGGLE_INTERVAL_MS 200UL
-#define LED_PIN PB5
-static void led_init(void)
+#include "scheduler.h"
+
+#define COUNTER_BIT0 PB2
+#define COUNTER_BIT1 PB3
+#define COUNTER_BIT2 PB4
+#define COUNTER_BIT3 PB5
+
+#define COUNTER_MASK ((1U << COUNTER_BIT0) | \
+(1U << COUNTER_BIT1) | \
+(1U << COUNTER_BIT2) | \
+(1U << COUNTER_BIT3))
+
+#define BLINK_LED PB0
+
+#define COUNTER_INTERVAL_MS 1000UL
+#define BLINK_INTERVAL_MS   500UL
+
+static uint8_t counter = 0;
+
+static void gpio_init(void)
 {
-    //configure the led pin as output.
-    DDRB |= (1U << LED_PIN);
+DDRB |= COUNTER_MASK;
+
+DDRB |= (1U << BLINK_LED);
+
+PORTB &= (uint8_t)~COUNTER_MASK;
+PORTB &= (uint8_t)~(1U << BLINK_LED);
+
 }
 
-static void led_toggle(void)
+static void counter_task(void)
 {
-    //toggle the led.
-    PORTB ^= (1U << LED_PIN);
+if(counter == 15)
+{
+    counter = 0;
+}
+else
+{
+    counter++;
+}
+
+PORTB = (PORTB & (uint8_t)~COUNTER_MASK) |
+        (uint8_t)((counter & 0x0F) << COUNTER_BIT0);
+
+}
+
+static void blink_task(void)
+{
+PORTB ^= (1U << BLINK_LED);
 }
 
 int main(void)
 {
-    led_init();
-    timer_init();
-    uint32_t last_toggle = timer_get_ticks();
-    while (1)
-    {
-        uint32_t now = timer_get_ticks();
-        if(now - last_toggle >= LED_TOGGLE_INTERVAL_MS){
-            led_toggle();
-            last_toggle = now;
-        }
-    }
-    return 0;
+const task_config_t counter_task_config = {
+.function = counter_task,
+.interval_ms = COUNTER_INTERVAL_MS,
+.policy = SCHEDULE_FIXED_RATE
+};
+
+const task_config_t blink_task_config = {
+    .function = blink_task,
+    .interval_ms = BLINK_INTERVAL_MS,
+    .policy = SCHEDULE_FROM_LAST_RUN
+};
+
+gpio_init();
+
+timer_init();
+scheduler_init();
+
+(void)scheduler_add_task(&counter_task_config);
+(void)scheduler_add_task(&blink_task_config);
+
+while (1)
+{
+    scheduler_run_once();
+}
+
 }
