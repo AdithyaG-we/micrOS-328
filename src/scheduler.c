@@ -5,20 +5,24 @@
 typedef struct
 {
 void (*function)(void);
+uint8_t id;
 uint32_t interval_ms;
 uint32_t next_run;
 schedule_policy_t policy;
+uint32_t execution_count;
 } task_entry_t;
 
 static task_entry_t tasks[SCHEDULER_MAX_TASKS];
 static uint8_t task_count;
-
-void scheduler_init(void)
+static uint8_t next_task_id;
+void scheduler_init(scheduler_status_t *status)
 {
+*status = SCHEDULER_OK;
 task_count = 0;
+next_task_id = 1; //conflict test point.
 }
 
-scheduler_status_t scheduler_add_task(const task_config_t *config)
+scheduler_status_t scheduler_add_task(const task_config_t *config, task_id_t *id)
 {
 if (config == 0 ||
 config->function == 0 ||
@@ -26,17 +30,27 @@ config->interval_ms == 0)
 {
 return SCHEDULER_ERR_INVALID_TASK;
 }
-
+if(id == 0)
+{
+    return SCHEDULER_ERR_INVALID_ARGUMENT;
+}
 if (task_count >= SCHEDULER_MAX_TASKS)
 {
     return SCHEDULER_ERR_FULL;
 }
-
+//not a concern for now.
+if(next_task_id == TASK_ID_INVALID)
+{
+    return SCHEDULER_ERR_FULL;
+}
 task_entry_t *task = &tasks[task_count];
 
+task->id = next_task_id;
+*id = next_task_id;
+next_task_id++;
 task->function = config->function;
 task->interval_ms = config->interval_ms;
-
+task->execution_count = 0; //conflict test point.
 if (config->policy == SCHEDULE_FIXED_RATE)
 {
     task->policy = SCHEDULE_FIXED_RATE;
@@ -54,6 +68,27 @@ return SCHEDULER_OK;
 
 }
 
+scheduler_status_t scheduler_get_execution_count(task_id_t id, uint32_t *count_out)
+{
+if(count_out == 0)
+{
+    return SCHEDULER_ERR_INVALID_ARGUMENT;
+}
+if(id == TASK_ID_INVALID)
+{
+    return SCHEDULER_ERR_INVALID_ID;
+}
+for (uint8_t i = 0; i < task_count; i++)
+{
+    if (tasks[i].id == id)
+    {
+        *count_out = tasks[i].execution_count;
+        return SCHEDULER_OK;
+    }
+}
+return SCHEDULER_ERR_INVALID_ID;
+}
+
 void scheduler_run_once(void)
 {
 uint8_t i;
@@ -66,6 +101,7 @@ for (i = 0; i < task_count; i++)
     if ((int32_t)(now - task->next_run) >= 0)
     {
         task->function();
+        task->execution_count++;
 
         if (task->policy == SCHEDULE_FIXED_RATE)
         {
