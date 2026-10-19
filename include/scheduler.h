@@ -3,8 +3,8 @@
 
 #include <stdint.h>
 typedef uint8_t task_id_t;
-#define SCHEDULER_MAX_TASKS 8
-#define TASK_ID_INVALID 0
+#define SCHEDULER_MAX_TASKS 0x08
+#define TASK_ID_INVALID 0x00
 
 //task scheduling policies
 typedef enum
