@@ -10,6 +10,7 @@ typedef struct
     uint32_t interval_ms;
     uint32_t next_run;
     schedule_policy_t policy;
+    task_state_t state;
     uint32_t execution_count;
     uint8_t leds[MAX_LEDS];
     uint8_t led_count;
@@ -50,7 +51,7 @@ scheduler_status_t scheduler_add_task(const task_config_t *config, task_id_t *id
 
     task->id = next_task_id;
     *id = next_task_id;
-    next_task_id++; // conflict test point.
+    update_next_task_id(); // conflict test point.
     task->function = config->function;
     task->interval_ms = config->interval_ms;
     task->execution_count = 0; // conflict test point.
@@ -129,19 +130,27 @@ void scheduler_run_once(void)
     }
 }
 
-// void update_next_task_id()
-// {
-//     uint8_t i = 0;
-//     while (i < SCHEDULER_MAX_TASKS)
-//     {
-//         if (tasks[i].id == 0)
-//         {
-//             next_task_id = i + 1;
-//             return;
-//         }
-//         i++;
-//     }
-// }
+void update_next_task_id(void)
+{
+    for (uint8_t candidate = 1; candidate != TASK_ID_INVALID; candidate++)
+    {
+        uint8_t in_use = 0;
+        for (uint8_t i = 0; i < task_count; i++)
+        {
+            if (tasks[i].id == candidate)
+            {
+                in_use = 1;
+                break;
+            }
+        }
+        if (!in_use)
+        {
+            next_task_id = candidate;
+            return;
+        }
+    }
+    next_task_id = TASK_ID_INVALID; // all IDs exhausted.
+}
 
 void delete_one_task(task_id_t to_remove)
 {
@@ -149,12 +158,12 @@ void delete_one_task(task_id_t to_remove)
     {
         if (tasks[i].id == to_remove)
         {
-            for(uint8_t j = 0; j < tasks[i].led_count; j++)
+            for (uint8_t j = 0; j < tasks[i].led_count; j++)
             {
                 PORTB &= (uint8_t)~(1 << tasks[i].leds[j]); // turn off the LED
                 tasks[i].leds[j] = 0;
             }
-            // shift all subsequent tasks left by one
+            // shift all subsequent tasks left by one unit.
             for (uint8_t j = i; j < task_count - 1; j++)
             {
                 tasks[j] = tasks[j + 1];
@@ -168,9 +177,14 @@ void delete_one_task(task_id_t to_remove)
             tasks[task_count - 1].execution_count = 0;
             tasks[task_count - 1].led_count = 0;
             tasks[task_count - 1].leds[0] = 0;
-            next_task_id = to_remove; // set next_task_id to the removed task's ID
             task_count--;
+            update_next_task_id(); // set next_task_id to the removed task's ID
             return;
         }
     }
+}
+
+uint8_t get_next_task_id(void)
+{
+    return next_task_id;
 }

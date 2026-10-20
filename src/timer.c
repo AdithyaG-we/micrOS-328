@@ -43,7 +43,7 @@ uint32_t timer_get_ticks(void)
 {
     uint32_t ticks;
 
-    ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) //avoiding race condition.
     {
         ticks = system_ticks;
     }

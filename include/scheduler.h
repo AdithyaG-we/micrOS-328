@@ -24,6 +24,12 @@ SCHEDULER_ERR_INVALID_ID,
 SCHEDULER_ERR_INVALID_ARGUMENT
 } scheduler_status_t;
 
+typedef enum{
+TASK_RUNNING,
+TASK_READY,
+TASK_BLOCKED
+} task_state_t;
+
 typedef struct
 {
 void (*function)(void);
@@ -44,6 +50,8 @@ void scheduler_run_once(void);
 
 void delete_one_task(task_id_t to_remove);
 
-// void update_next_task_id();
+void update_next_task_id();
+
+uint8_t get_next_task_id(void);
 
 #endif

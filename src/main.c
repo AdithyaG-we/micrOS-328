@@ -9,99 +9,104 @@
 #define COUNTER_BIT1 PB3
 #define COUNTER_BIT2 PB4
 #define COUNTER_BIT3 PB5
+#define ERROR_LED PB1
 
 #define COUNTER_MASK ((1U << COUNTER_BIT0) | \
-(1U << COUNTER_BIT1) | \
-(1U << COUNTER_BIT2) | \
-(1U << COUNTER_BIT3))
+                      (1U << COUNTER_BIT1) | \
+                      (1U << COUNTER_BIT2) | \
+                      (1U << COUNTER_BIT3))
 
 #define BLINK_LED PB0
 
-#define COUNTER_INTERVAL_MS 100UL
-#define BLINK_INTERVAL_MS   50UL
+#define COUNTER_INTERVAL_MS 1000UL
+#define BLINK_INTERVAL_MS 500UL
 
 static uint8_t counter = 0;
 
 static void gpio_init(void)
 {
-DDRB |= COUNTER_MASK;
+    DDRB |= COUNTER_MASK;
+    DDRB |= (1U << ERROR_LED);
+    DDRB |= (1U << BLINK_LED);
 
-DDRB |= (1U << BLINK_LED);
-
-PORTB &= (uint8_t)~COUNTER_MASK;
-PORTB &= (uint8_t)~(1U << BLINK_LED);
-
+    PORTB &= (uint8_t)~COUNTER_MASK;
+    PORTB &= (uint8_t)~(1U << BLINK_LED);
+    PORTB &= (uint8_t)(1U << ERROR_LED); //start as ON.
 }
 
 static void counter_task(void)
 {
-if(counter == 15)
-{
-    counter = 0;
-}
-else
-{
-    counter++;
-}
+    if (counter == 15)
+    {
+        counter = 0;
+    }
+    else
+    {
+        counter++;
+    }
 
-PORTB = (PORTB & (uint8_t)~COUNTER_MASK) |
-        (uint8_t)((counter & 0x0F) << COUNTER_BIT0);
-
+    PORTB = (PORTB & (uint8_t)~COUNTER_MASK) |
+            (uint8_t)((counter & 0x0F) << COUNTER_BIT0);
 }
 
 static void blink_task(void)
 {
-PORTB ^= (1U << BLINK_LED);
+    PORTB ^= (1U << BLINK_LED);
 }
 
 static uint8_t scheduler_sanity_check(void)
 {
     uint32_t count;
     scheduler_status_t status;
-
-    //ensure execution counts are zero at initialisation.
-    for(uint8_t i = 1; i <= SCHEDULER_MAX_TASKS; i++)
+    //ensure next task ID is set correctly after initialization.
+    if (get_next_task_id() != 1){
+        return 0;
+    }
+    // ensure execution counts are zero at initialisation.
+    for (uint8_t i = 1; i <= SCHEDULER_MAX_TASKS; i++)
     {
         status = scheduler_get_execution_count(i, &count);
-        if(status == SCHEDULER_ERR_INVALID_ID) //passed.
+        if (status == SCHEDULER_ERR_INVALID_ID) // passed.
         {
             continue;
         }
-        else if(status != SCHEDULER_OK || count != 0) //passed.
+        else if (status != SCHEDULER_OK || count != 0) // passed.
         {
             return 0;
         }
     }
 
-    //ensure invalid task IDs return the correct error code.
+    // ensure invalid task IDs return the correct error code.
     status = scheduler_get_execution_count(SCHEDULER_MAX_TASKS + 1, &count);
-    if(status != SCHEDULER_ERR_INVALID_ID){ //passed.
+    if (status != SCHEDULER_ERR_INVALID_ID)
+    { // passed.
         return 0;
     }
     status = scheduler_get_execution_count(TASK_ID_INVALID, &count);
-    if(status != SCHEDULER_ERR_INVALID_ID){ //passed.
+    if (status != SCHEDULER_ERR_INVALID_ID)
+    { // passed.
         return 0;
     }
 
-    //return 1 if all tests pass.
+    // return 1 if all tests pass.
     return 1;
 }
 
 scheduler_status_t task_verification(const task_config_t *config, task_id_t *id)
 {
-    if(config->function == NULL || config->interval_ms == 0)
+    if (config->function == NULL || config->interval_ms == 0)
     {
         return SCHEDULER_ERR_INVALID_TASK;
     }
     scheduler_status_t status = scheduler_add_task(config, id);
-    if(status != SCHEDULER_OK)
+    if (status != SCHEDULER_OK)
     {
         return status;
     }
 
     uint32_t count;
     status = scheduler_get_execution_count(*id, &count);
-    if(status != SCHEDULER_OK || count != 0)
+    if (status != SCHEDULER_OK || count != 0)
     {
         return SCHEDULER_ERR_INVALID_TASK;
     }
@@ -111,71 +116,87 @@ scheduler_status_t task_verification(const task_config_t *config, task_id_t *id)
 
 int main(void)
 {
-const task_config_t counter_task_config = {
-    .function = counter_task,
-    .interval_ms = COUNTER_INTERVAL_MS,
-    .policy = SCHEDULE_FIXED_RATE,
-    .led_count = 4,
-    .leds = {COUNTER_BIT0, COUNTER_BIT1, COUNTER_BIT2, COUNTER_BIT3}
-};
+    const task_config_t counter_task_config = {
+        .function = counter_task,
+        .interval_ms = COUNTER_INTERVAL_MS,
+        .policy = SCHEDULE_FIXED_RATE,
+        .led_count = 4,
+        .leds = {COUNTER_BIT0, COUNTER_BIT1, COUNTER_BIT2, COUNTER_BIT3},
+    };
 
-const task_config_t blink_task_config = {
-    .function = blink_task,
-    .interval_ms = BLINK_INTERVAL_MS,
-    .policy = SCHEDULE_FROM_LAST_RUN,
-    .led_count = 1,
-    .leds = {BLINK_LED}
-};
-gpio_init();
+    const task_config_t blink_task_config = {
+        .function = blink_task,
+        .interval_ms = BLINK_INTERVAL_MS,
+        .policy = SCHEDULE_FROM_LAST_RUN,
+        .led_count = 1,
+        .leds = {BLINK_LED}
+    };
 
-timer_init();
-scheduler_status_t status;
-scheduler_init(&status);
+    gpio_init();
+    timer_init();
+    scheduler_status_t status;
+    scheduler_init(&status);
 
-task_id_t counter_task_id;
-task_id_t blink_task_id;
+    task_id_t counter_task_id;
+    task_id_t blink_task_id;
 
-if(!scheduler_sanity_check())
-{
-    //keeps the blink led ON to indicate a failure in the self-test.
-    PORTB |= (1U << BLINK_LED);
-    while(1){
-        //Handle error
+    if (!scheduler_sanity_check())
+    {
+        // keeps the blink led ON to indicate a failure in the self-test.
+        PORTB |= (1U << ERROR_LED);
+        while (1)
+        {
+            // Handle error
+        }
     }
-}
 
-status = task_verification(&counter_task_config, &counter_task_id);
-if(status != SCHEDULER_OK)
-{
-    //keeps the blink led ON to indicate a failure in the self-test.
-    PORTB |= (1U << BLINK_LED);
-    while(1){
-        //Handle error
+    status = task_verification(&counter_task_config, &counter_task_id);
+    if (status != SCHEDULER_OK)
+    {
+        // keeps the blink led ON to indicate a failure in the self-test.
+        PORTB |= (1U << ERROR_LED);
+        while (1)
+        {
+            // Handle error
+        }
     }
-}
 
-status = task_verification(&blink_task_config, &blink_task_id);
-if(status != SCHEDULER_OK)
-{
-    //keeps the blink led ON to indicate a failure in the self-test.
-    PORTB |= (1U << BLINK_LED);
-    while(1){
-        //Handle error
+    status = task_verification(&blink_task_config, &blink_task_id);
+    if (status != SCHEDULER_OK)
+    {
+        // keeps the blink led ON to indicate a failure in the self-test.
+        PORTB |= (1U << ERROR_LED);
+        while (1)
+        {
+            // Handle error
+        }
     }
-}
-uint32_t count = 0;
-while (count < 100000)
-{
-    count++;
-    scheduler_run_once();
-    // uint32_t counter_executions;
-    // uint32_t blink_executions;
-    // (void)scheduler_get_execution_count(counter_task_id, &counter_executions);
-    // (void)scheduler_get_execution_count(blink_task_id, &blink_executions);
-}
-delete_one_task(counter_task_id);
-while (1)
-{
-    scheduler_run_once();
-}
+    uint32_t count = 0;
+    while (count < 300000)
+    {
+        count++;
+        scheduler_run_once();
+    }
+    delete_one_task(counter_task_id);
+    count = 0;
+    while (count < 300000)
+    {
+        scheduler_run_once();
+        count++;
+    }
+    status = task_verification(&counter_task_config, &counter_task_id); // ensure correct task is added after deletion.
+    status = task_verification(&counter_task_config, &counter_task_id); // ensure correct task is added after deletion.
+    if (status != SCHEDULER_OK)
+    {
+        // keeps the blink led ON to indicate a failure in the self-test.
+        PORTB |= (1U << ERROR_LED);
+        while (1)
+        {
+            // Handle error
+        }
+    }
+    while (1)
+    {
+        scheduler_run_once();
+    }
 }
