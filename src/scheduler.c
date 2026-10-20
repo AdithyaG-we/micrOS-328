@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include "scheduler.h"
 #include "timer.h"
+#include <avr/io.h>
 
 typedef struct
 {
@@ -10,6 +11,8 @@ typedef struct
     uint32_t next_run;
     schedule_policy_t policy;
     uint32_t execution_count;
+    uint8_t leds[MAX_LEDS];
+    uint8_t led_count;
 } task_entry_t;
 
 task_entry_t tasks[SCHEDULER_MAX_TASKS];
@@ -26,13 +29,13 @@ scheduler_status_t scheduler_add_task(const task_config_t *config, task_id_t *id
 {
     if (config == 0 ||
         config->function == 0 ||
-        config->interval_ms == 0)
+        config->interval_ms == 0 || config->led_count > MAX_LEDS)
     {
         return SCHEDULER_ERR_INVALID_TASK;
     }
     if (id == 0)
     {
-        return SCHEDULER_ERR_INVALID_ARGUMENT;
+        return SCHEDULER_ERR_INVALID_TASK;
     }
     if (task_count >= SCHEDULER_MAX_TASKS)
     {
@@ -47,10 +50,15 @@ scheduler_status_t scheduler_add_task(const task_config_t *config, task_id_t *id
 
     task->id = next_task_id;
     *id = next_task_id;
-    update_next_task_id(); // conflict test point.
+    next_task_id++; // conflict test point.
     task->function = config->function;
     task->interval_ms = config->interval_ms;
     task->execution_count = 0; // conflict test point.
+    task->led_count = config->led_count;
+    for (uint8_t i = 0; i < task->led_count; i++)
+    {
+        task->leds[i] = config->leds[i];
+    }
     if (config->policy == SCHEDULE_FIXED_RATE)
     {
         task->policy = SCHEDULE_FIXED_RATE;
@@ -121,29 +129,47 @@ void scheduler_run_once(void)
     }
 }
 
-void update_next_task_id(){
-    uint8_t i = 0;
-    while(i < SCHEDULER_MAX_TASKS){
-        if(tasks[i].id == 0){
-            next_task_id = i+1;
-            return;
-        }
-        i++;
-    }
-}
+// void update_next_task_id()
+// {
+//     uint8_t i = 0;
+//     while (i < SCHEDULER_MAX_TASKS)
+//     {
+//         if (tasks[i].id == 0)
+//         {
+//             next_task_id = i + 1;
+//             return;
+//         }
+//         i++;
+//     }
+// }
 
-void delete_one_task(task_id_t to_remove){
-    
-    for(uint8_t i = 0; i < task_count; i++){
-        if(tasks[i].id == to_remove){
-            tasks[i].id = 0;
-            tasks[i].function = 0;
-            tasks[i].interval_ms = 0;
-            tasks[i].next_run = 0;
-            tasks[i].policy = SCHEDULE_FROM_LAST_RUN;
-            tasks[i].execution_count = 0;
+void delete_one_task(task_id_t to_remove)
+{
+    for (uint8_t i = 0; i < task_count; i++)
+    {
+        if (tasks[i].id == to_remove)
+        {
+            for(uint8_t j = 0; j < tasks[i].led_count; j++)
+            {
+                PORTB &= (uint8_t)~(1 << tasks[i].leds[j]); // turn off the LED
+                tasks[i].leds[j] = 0;
+            }
+            // shift all subsequent tasks left by one
+            for (uint8_t j = i; j < task_count - 1; j++)
+            {
+                tasks[j] = tasks[j + 1];
+            }
+            // zero out the now-vacant last slot
+            tasks[task_count - 1].id = 0;
+            tasks[task_count - 1].function = 0;
+            tasks[task_count - 1].interval_ms = 0;
+            tasks[task_count - 1].next_run = 0;
+            tasks[task_count - 1].policy = SCHEDULE_FROM_LAST_RUN;
+            tasks[task_count - 1].execution_count = 0;
+            tasks[task_count - 1].led_count = 0;
+            tasks[task_count - 1].leds[0] = 0;
+            next_task_id = to_remove; // set next_task_id to the removed task's ID
             task_count--;
-            update_next_task_id();
             return;
         }
     }

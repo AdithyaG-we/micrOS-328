@@ -17,8 +17,8 @@
 
 #define BLINK_LED PB0
 
-#define COUNTER_INTERVAL_MS 1000UL
-#define BLINK_INTERVAL_MS   500UL
+#define COUNTER_INTERVAL_MS 100UL
+#define BLINK_INTERVAL_MS   50UL
 
 static uint8_t counter = 0;
 
@@ -114,13 +114,17 @@ int main(void)
 const task_config_t counter_task_config = {
     .function = counter_task,
     .interval_ms = COUNTER_INTERVAL_MS,
-    .policy = SCHEDULE_FIXED_RATE
+    .policy = SCHEDULE_FIXED_RATE,
+    .led_count = 4,
+    .leds = {COUNTER_BIT0, COUNTER_BIT1, COUNTER_BIT2, COUNTER_BIT3}
 };
 
 const task_config_t blink_task_config = {
     .function = blink_task,
     .interval_ms = BLINK_INTERVAL_MS,
-    .policy = SCHEDULE_FROM_LAST_RUN
+    .policy = SCHEDULE_FROM_LAST_RUN,
+    .led_count = 1,
+    .leds = {BLINK_LED}
 };
 gpio_init();
 
@@ -159,14 +163,19 @@ if(status != SCHEDULER_OK)
         //Handle error
     }
 }
-
+uint32_t count = 0;
+while (count < 100000)
+{
+    count++;
+    scheduler_run_once();
+    // uint32_t counter_executions;
+    // uint32_t blink_executions;
+    // (void)scheduler_get_execution_count(counter_task_id, &counter_executions);
+    // (void)scheduler_get_execution_count(blink_task_id, &blink_executions);
+}
+delete_one_task(counter_task_id);
 while (1)
 {
     scheduler_run_once();
-    uint32_t counter_executions;
-    uint32_t blink_executions;
-    (void)scheduler_get_execution_count(counter_task_id, &counter_executions);
-    (void)scheduler_get_execution_count(blink_task_id, &blink_executions);
 }
-
 }

@@ -5,6 +5,7 @@
 typedef uint8_t task_id_t;
 #define SCHEDULER_MAX_TASKS 0x08
 #define TASK_ID_INVALID 0x00
+#define MAX_LEDS 0x08
 
 //task scheduling policies
 typedef enum
@@ -28,6 +29,9 @@ typedef struct
 void (*function)(void);
 uint32_t interval_ms;
 schedule_policy_t policy;
+
+uint8_t leds[MAX_LEDS];
+uint8_t led_count;
 } task_config_t;
 
 void scheduler_init(scheduler_status_t *status);
@@ -40,6 +44,6 @@ void scheduler_run_once(void);
 
 void delete_one_task(task_id_t to_remove);
 
-void update_next_task_id();
+// void update_next_task_id();
 
 #endif
