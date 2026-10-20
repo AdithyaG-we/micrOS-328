@@ -54,19 +54,13 @@ static void blink_task(void)
 PORTB ^= (1U << BLINK_LED);
 }
 
-static uint8_t scheduler_self_test(task_id_t counter_task_id, task_id_t blink_task_id)
+static uint8_t scheduler_sanity_check(void)
 {
     uint32_t count;
     scheduler_status_t status;
 
-    //ensure task IDs are valid. remove this check when expanding scope.
-    if(counter_task_id != 1 || blink_task_id != 2) //passed.
-    {
-        return 0;
-    }
-
     //ensure execution counts are zero at initialisation.
-    for(uint8_t i = 1; i < SCHEDULER_MAX_TASKS; i++) //fix here.
+    for(uint8_t i = 1; i <= SCHEDULER_MAX_TASKS; i++)
     {
         status = scheduler_get_execution_count(i, &count);
         if(status == SCHEDULER_ERR_INVALID_ID) //passed.
@@ -89,14 +83,30 @@ static uint8_t scheduler_self_test(task_id_t counter_task_id, task_id_t blink_ta
         return 0;
     }
 
-    //ensure passing a null pointer returns an error.
-    status = scheduler_get_execution_count(blink_task_id, 0);
-    if(status != SCHEDULER_ERR_INVALID_ARGUMENT){ //passed.
-        return 0;
-    }
-
     //return 1 if all tests pass.
     return 1;
+}
+
+scheduler_status_t task_verification(const task_config_t *config, task_id_t *id)
+{
+    if(config->function == NULL || config->interval_ms == 0)
+    {
+        return SCHEDULER_ERR_INVALID_TASK;
+    }
+    scheduler_status_t status = scheduler_add_task(config, id);
+    if(status != SCHEDULER_OK)
+    {
+        return status;
+    }
+
+    uint32_t count;
+    status = scheduler_get_execution_count(*id, &count);
+    if(status != SCHEDULER_OK || count != 0)
+    {
+        return SCHEDULER_ERR_INVALID_TASK;
+    }
+
+    return SCHEDULER_OK;
 }
 
 int main(void)
@@ -120,10 +130,28 @@ scheduler_init(&status);
 
 task_id_t counter_task_id;
 task_id_t blink_task_id;
-status = scheduler_add_task(&counter_task_config, &counter_task_id);
-status = scheduler_add_task(&blink_task_config, &blink_task_id);
 
-if(!scheduler_self_test(counter_task_id, blink_task_id))
+if(!scheduler_sanity_check())
+{
+    //keeps the blink led ON to indicate a failure in the self-test.
+    PORTB |= (1U << BLINK_LED);
+    while(1){
+        //Handle error
+    }
+}
+
+status = task_verification(&counter_task_config, &counter_task_id);
+if(status != SCHEDULER_OK)
+{
+    //keeps the blink led ON to indicate a failure in the self-test.
+    PORTB |= (1U << BLINK_LED);
+    while(1){
+        //Handle error
+    }
+}
+
+status = task_verification(&blink_task_config, &blink_task_id);
+if(status != SCHEDULER_OK)
 {
     //keeps the blink led ON to indicate a failure in the self-test.
     PORTB |= (1U << BLINK_LED);

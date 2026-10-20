@@ -1,0 +1,5 @@
+1. find a way to access the tasks array from main function without moving the declaration to scheduler.h
+    the test:   ensure that the task_entry->interval value is not zero.
+                ensure that the task_entry->function() is not void.
+                ensure that the task_entry->execution count is zero at initialisation.
+                

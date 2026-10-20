@@ -47,7 +47,7 @@ scheduler_status_t scheduler_add_task(const task_config_t *config, task_id_t *id
 
     task->id = next_task_id;
     *id = next_task_id;
-    next_task_id++;
+    update_next_task_id(); // conflict test point.
     task->function = config->function;
     task->interval_ms = config->interval_ms;
     task->execution_count = 0; // conflict test point.
@@ -117,6 +117,34 @@ void scheduler_run_once(void)
             {
                 task->next_run = timer_get_ticks() + task->interval_ms;
             }
+        }
+    }
+}
+
+void update_next_task_id(){
+    uint8_t i = 0;
+    while(i < SCHEDULER_MAX_TASKS){
+        if(tasks[i].id == 0){
+            next_task_id = i+1;
+            return;
+        }
+        i++;
+    }
+}
+
+void delete_one_task(task_id_t to_remove){
+    
+    for(uint8_t i = 0; i < task_count; i++){
+        if(tasks[i].id == to_remove){
+            tasks[i].id = 0;
+            tasks[i].function = 0;
+            tasks[i].interval_ms = 0;
+            tasks[i].next_run = 0;
+            tasks[i].policy = SCHEDULE_FROM_LAST_RUN;
+            tasks[i].execution_count = 0;
+            task_count--;
+            update_next_task_id();
+            return;
         }
     }
 }

@@ -38,4 +38,8 @@ scheduler_status_t scheduler_get_execution_count(task_id_t id, uint32_t *count_o
 
 void scheduler_run_once(void);
 
+void delete_one_task(task_id_t to_remove);
+
+void update_next_task_id();
+
 #endif
