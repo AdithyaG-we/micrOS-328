@@ -32,11 +32,11 @@ scheduler_status_t scheduler_add_task(const task_config_t *config, task_id_t *id
         config->function == 0 ||
         config->interval_ms == 0 || config->led_count > MAX_LEDS)
     {
-        return SCHEDULER_ERR_INVALID_TASK;
+        return SCHEDULER_ERR_INVALID_ARGUMENT;
     }
     if (id == 0)
     {
-        return SCHEDULER_ERR_INVALID_TASK;
+        return SCHEDULER_ERR_INVALID_ARGUMENT;
     }
     if (task_count >= SCHEDULER_MAX_TASKS)
     {
