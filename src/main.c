@@ -5,6 +5,7 @@
 #include "timer.h"
 #include "scheduler.h"
 #include "interrupt.h"
+#include "pwm.h"
 
 #define COUNTER_BIT0 PB2
 #define COUNTER_BIT1 PB3
@@ -21,6 +22,12 @@
 
 #define COUNTER_INTERVAL_MS 1000UL
 #define BLINK_INTERVAL_MS 300UL
+/* Change these two values to adjust the breathing animation. */
+#define BRIGHTNESS_STEP       3
+#define BRIGHTNESS_UPDATE_MS 10UL
+
+static uint8_t brightness = 0;
+static int8_t brightness_step = BRIGHTNESS_STEP;
 
 static uint8_t counter = 0;
 scheduler_status_t status;
@@ -47,6 +54,28 @@ static void blink_task(void)
     PORTB ^= (1U << BLINK_LED);
 }
 
+static void led_breathe_task(void)
+{
+    int16_t next = (int16_t)brightness + (int16_t)brightness_step;
+
+    if (next >= 255)
+    {
+        brightness = 255;
+        brightness_step = -BRIGHTNESS_STEP;
+    }
+    else if (next <= 0)
+    {
+        brightness = 0;
+        brightness_step = BRIGHTNESS_STEP;
+    }
+    else
+    {
+        brightness = (uint8_t)next;
+    }
+
+    pwm_led_set_duty(brightness);
+}
+
 const task_config_t counter_task_config = {
         .function = counter_task,
         .interval_ms = COUNTER_INTERVAL_MS,
@@ -62,8 +91,19 @@ const task_config_t blink_task_config = {
     .led_count = 1,
     .leds = {BLINK_LED}};
 
+const task_config_t breathe_task = {
+        .function = led_breathe_task,
+        .interval_ms = BRIGHTNESS_UPDATE_MS,
+        .policy = SCHEDULE_FIXED_RATE,
+        /* The current scheduler's LED cleanup only manipulates PORTB.
+           PD6 is driven by Timer0, so don't register it in .leds. */
+        .led_count = 0
+    };
+
+
 task_id_t counter_task_id;
 task_id_t blink_task_id;
+task_id_t breathe_task_id;
 
 static void gpio_init(void)
 {
@@ -184,6 +224,16 @@ int main(void)
         while (1)
         {
             // Handle error
+        }
+    }
+
+    if (scheduler_add_task(&breathe_task, &breathe_task_id) != SCHEDULER_OK)
+    {
+        pwm_led_set_duty(0);
+        PORTB |= (1U << ERROR_LED);
+        for (;;)
+        {
+            /* Couldn't register breathing task. */
         }
     }
     uint32_t count = 0;
