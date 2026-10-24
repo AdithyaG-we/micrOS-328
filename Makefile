@@ -6,7 +6,14 @@ OBJCOPY = avr-objcopy
 SIZE = avr-size
 
 TARGET = build/main
-SRC = src/main.c
+SRC = src/main.c \
+      src/timer.c \
+      src/scheduler.c \
+      src/task.c \
+      src/functions.c \
+      src/interrupt.c \
+      src/pwm.c \
+      src/isr.c
 
 CFLAGS = -mmcu=$(MCU) \
          -DF_CPU=$(F_CPU) \
@@ -14,7 +21,8 @@ CFLAGS = -mmcu=$(MCU) \
          -Os \
          -Wall \
          -Wextra \
-         -Werror
+         -Werror \
+         -Iinclude
 
 all: $(TARGET).hex
 

@@ -1,109 +1,63 @@
 #include <stdint.h>
 #include "scheduler.h"
 #include "timer.h"
+#include "task.h"
 #include <avr/io.h>
+#include <stddef.h>
 
-typedef struct
-{
-    void (*function)(void);
-    uint8_t id;
-    uint32_t interval_ms;
-    uint32_t next_run;
-    schedule_policy_t policy;
-    task_state_t state;
-    uint32_t execution_count;
-    uint8_t leds[MAX_LEDS];
-    uint8_t led_count;
-} task_entry_t;
-
-task_entry_t tasks[SCHEDULER_MAX_TASKS];
-static uint8_t task_count;
-static uint8_t next_task_id;
 void scheduler_init(scheduler_status_t *status)
 {
     *status = SCHEDULER_OK;
-    task_count = 0;
-    next_task_id = 1; // conflict test point.
+    set_task_count(0);
+    set_next_task_id(1); // conflict test point.
 }
 
-scheduler_status_t scheduler_add_task(const task_config_t *config, task_id_t *id)
+uint8_t scheduler_sanity_check(void)
 {
-    if (config == 0 ||
-        config->function == 0 ||
-        config->interval_ms == 0 || config->led_count > MAX_LEDS)
+    uint32_t count;
+    scheduler_status_t status;
+    // ensure next task ID is set correctly after initialization.
+    if (get_next_task_id() != 1)
     {
-        return SCHEDULER_ERR_INVALID_ARGUMENT;
+        return 0;
     }
-    if (id == 0)
+    // ensure execution counts are zero at initialisation.
+    for (uint8_t i = 1; i <= MAX_TASKS; i++)
     {
-        return SCHEDULER_ERR_INVALID_ARGUMENT;
-    }
-    if (task_count >= SCHEDULER_MAX_TASKS)
-    {
-        return SCHEDULER_ERR_FULL;
-    }
-    // not a concern for now.
-    if (next_task_id == TASK_ID_INVALID)
-    {
-        return SCHEDULER_ERR_FULL;
-    }
-    task_entry_t *task = &tasks[task_count];
-
-    task->id = next_task_id;
-    *id = next_task_id;
-    update_next_task_id(); // conflict test point.
-    task->function = config->function;
-    task->interval_ms = config->interval_ms;
-    task->execution_count = 0; // conflict test point.
-    task->led_count = config->led_count;
-    for (uint8_t i = 0; i < task->led_count; i++)
-    {
-        task->leds[i] = config->leds[i];
-    }
-    if (config->policy == SCHEDULE_FIXED_RATE)
-    {
-        task->policy = SCHEDULE_FIXED_RATE;
-    }
-    else
-    {
-        task->policy = SCHEDULE_FROM_LAST_RUN;
-    }
-
-    task->next_run = timer_get_ticks() + task->interval_ms;
-
-    task_count++;
-
-    return SCHEDULER_OK;
-}
-
-scheduler_status_t scheduler_get_execution_count(task_id_t id, uint32_t *count_out)
-{
-    if (count_out == 0)
-    {
-        return SCHEDULER_ERR_INVALID_ARGUMENT;
-    }
-    if (id == TASK_ID_INVALID)
-    {
-        return SCHEDULER_ERR_INVALID_ID;
-    }
-    for (uint8_t i = 0; i < task_count; i++)
-    {
-        if (tasks[i].id == id)
+        status = scheduler_get_execution_count(i, &count);
+        if (status == SCHEDULER_ERR_INVALID_ID) // passed.
         {
-            *count_out = tasks[i].execution_count;
-            return SCHEDULER_OK;
+            continue;
+        }
+        else if (status != SCHEDULER_OK || count != 0) // passed.
+        {
+            return 0;
         }
     }
-    return SCHEDULER_ERR_INVALID_ID;
+
+    // ensure invalid task IDs return the correct error code.
+    status = scheduler_get_execution_count(MAX_TASKS + 1, &count);
+    if (status != SCHEDULER_ERR_INVALID_ID)
+    { // passed.
+        return 0;
+    }
+    status = scheduler_get_execution_count(TASK_ID_INVALID, &count);
+    if (status != SCHEDULER_ERR_INVALID_ID)
+    { // passed.
+        return 0;
+    }
+
+    // return 1 if all tests pass.
+    return 1;
 }
 
 void scheduler_run_once(void)
 {
     uint8_t i;
-
+    uint8_t task_count = get_task_count();
     for (i = 0; i < task_count; i++)
     {
-        task_entry_t *task = &tasks[i];
+        task_entry_t *task = get_task_by_index(i);
         uint32_t now = timer_get_ticks();
 
         if ((int32_t)(now - task->next_run) >= 0)
@@ -130,61 +84,24 @@ void scheduler_run_once(void)
     }
 }
 
-void update_next_task_id(void)
+scheduler_status_t add_and_verify_task(const task_config_t *config, task_id_t *id)
 {
-    for (uint8_t candidate = 1; candidate != TASK_ID_INVALID; candidate++)
+    if (config->function == NULL || config->interval_ms == 0)
     {
-        uint8_t in_use = 0;
-        for (uint8_t i = 0; i < task_count; i++)
-        {
-            if (tasks[i].id == candidate)
-            {
-                in_use = 1;
-                break;
-            }
-        }
-        if (!in_use)
-        {
-            next_task_id = candidate;
-            return;
-        }
+        return SCHEDULER_ERR_INVALID_ARGUMENT;
     }
-    next_task_id = TASK_ID_INVALID; // all IDs exhausted.
-}
-
-void delete_one_task(task_id_t to_remove)
-{
-    for (uint8_t i = 0; i < task_count; i++)
+    scheduler_status_t status = add_task(config, id);
+    if (status != SCHEDULER_OK)
     {
-        if (tasks[i].id == to_remove)
-        {
-            for (uint8_t j = 0; j < tasks[i].led_count; j++)
-            {
-                PORTB &= (uint8_t)~(1 << tasks[i].leds[j]); // turn off the LED
-                tasks[i].leds[j] = 0;
-            }
-            // shift all subsequent tasks left by one unit.
-            for (uint8_t j = i; j < task_count - 1; j++)
-            {
-                tasks[j] = tasks[j + 1];
-            }
-            // zero out the now-vacant last slot
-            tasks[task_count - 1].id = 0;
-            tasks[task_count - 1].function = 0;
-            tasks[task_count - 1].interval_ms = 0;
-            tasks[task_count - 1].next_run = 0;
-            tasks[task_count - 1].policy = SCHEDULE_FROM_LAST_RUN;
-            tasks[task_count - 1].execution_count = 0;
-            tasks[task_count - 1].led_count = 0;
-            tasks[task_count - 1].leds[0] = 0;
-            task_count--;
-            update_next_task_id(); // set next_task_id to the removed task's ID
-            return;
-        }
+        return status;
     }
-}
 
-uint8_t get_next_task_id(void)
-{
-    return next_task_id;
+    uint32_t count;
+    status = scheduler_get_execution_count(*id, &count);
+    if (status != SCHEDULER_OK || count != 0)
+    {
+        return SCHEDULER_ERR_INVALID_ARGUMENT;
+    }
+
+    return SCHEDULER_OK;
 }

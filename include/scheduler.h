@@ -2,56 +2,14 @@
 #define SCHEDULER_H
 
 #include <stdint.h>
-typedef uint8_t task_id_t;
-#define SCHEDULER_MAX_TASKS 0x08
-#define TASK_ID_INVALID 0x00
-#define MAX_LEDS 0x08
-
-//task scheduling policies
-typedef enum
-{
-SCHEDULE_FROM_LAST_RUN = 0,
-SCHEDULE_FIXED_RATE
-} schedule_policy_t;
-
-// Scheduler status
-typedef enum
-{
-SCHEDULER_OK = 0,
-SCHEDULER_ERR_INVALID_TASK,
-SCHEDULER_ERR_FULL,
-SCHEDULER_ERR_INVALID_ID,
-SCHEDULER_ERR_INVALID_ARGUMENT
-} scheduler_status_t;
-
-typedef enum{
-TASK_RUNNING,
-TASK_READY = 0,
-TASK_BLOCKED
-} task_state_t;
-
-typedef struct
-{
-void (*function)(void);
-uint32_t interval_ms;
-schedule_policy_t policy;
-
-uint8_t leds[MAX_LEDS];
-uint8_t led_count;
-} task_config_t;
+#include "task.h"
 
 void scheduler_init(scheduler_status_t *status);
 
-scheduler_status_t scheduler_add_task(const task_config_t *config, task_id_t *id);
-
-scheduler_status_t scheduler_get_execution_count(task_id_t id, uint32_t *count_out);
+uint8_t scheduler_sanity_check(void);
 
 void scheduler_run_once(void);
 
-void delete_one_task(task_id_t to_remove);
-
-void update_next_task_id();
-
-uint8_t get_next_task_id(void);
+scheduler_status_t add_and_verify_task(const task_config_t *config, task_id_t *id);
 
 #endif

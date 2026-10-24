@@ -7,13 +7,6 @@
 #define TIMER1_PRESCALER 64UL
 #define TIMER1_COMPARE   249UL  //250khz is the new frequency of the timer after prescaling, so 250khz/1000hz = 250
 
-static volatile uint32_t system_ticks = 0;
-
-ISR(TIMER1_COMPA_vect)
-{
-    system_ticks++;
-}
-
 void timer_init(void)
 {
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE)

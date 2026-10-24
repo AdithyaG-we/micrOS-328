@@ -2,6 +2,7 @@
 #define TIMER_H
 
 #include <stdint.h>
+extern volatile uint32_t system_ticks;
 
 void timer_init(void);
 
