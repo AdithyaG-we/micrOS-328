@@ -29,7 +29,7 @@ scheduler_status_t add_task(const task_config_t *config, task_id_t *id)
         return SCHEDULER_ERR_FULL;
     }
     task_entry_t *task = &tasks[task_count];
-
+    task_count++;
     task->id = next_task_id;
     *id = next_task_id;
     update_next_task_id(); // conflict test point.
@@ -52,9 +52,7 @@ scheduler_status_t add_task(const task_config_t *config, task_id_t *id)
         task->policy = SCHEDULE_FROM_LAST_RUN;
     }
 
-    task->next_run = timer_get_ticks() + task->interval_ms;
-
-    task_count++;
+    task->next_run = timer_get_hardware_ticks() + task->interval_ms;
 
     return SCHEDULER_OK;
 }

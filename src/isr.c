@@ -1,4 +1,5 @@
 #include <avr/interrupt.h>
+#include "timer.h"
 volatile uint8_t disable_counter_requested = 0; // compiler optimisation prevention.
 volatile uint8_t disable_breathing_requested = 0;
 volatile uint8_t disable_blinking_requested = 0;
@@ -12,7 +13,8 @@ ISR(INT1_vect){
     disable_breathing_requested = 2;
 }
 
-ISR(TIMER1_COMPA_vect)
+volatile uint16_t timer1_overflow_count = 0;
+ISR(TIMER1_OVF_vect)
 {
-    system_ticks++;
+    timer1_overflow_count++;
 }

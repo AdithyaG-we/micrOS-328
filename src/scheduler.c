@@ -58,7 +58,7 @@ void scheduler_run_once(void)
     for (i = 0; i < task_count; i++)
     {
         task_entry_t *task = get_task_by_index(i);
-        uint32_t now = timer_get_ticks();
+        uint32_t now = timer_get_hardware_ticks();
 
         if ((int32_t)(now - task->next_run) >= 0)
         {
@@ -69,7 +69,7 @@ void scheduler_run_once(void)
             {
                 task->next_run += task->interval_ms;
 
-                now = timer_get_ticks();
+                now = timer_get_hardware_ticks();
 
                 if ((int32_t)(now - task->next_run) >= 0)
                 {
@@ -78,7 +78,7 @@ void scheduler_run_once(void)
             }
             else
             {
-                task->next_run = timer_get_ticks() + task->interval_ms;
+                task->next_run = timer_get_hardware_ticks() + task->interval_ms;
             }
         }
     }

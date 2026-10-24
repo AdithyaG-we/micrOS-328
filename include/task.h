@@ -1,26 +1,30 @@
 #ifndef TASK_H
 #define TASK_H
+
 #include <stdint.h>
+#include <stddef.h>
+
 typedef uint8_t task_id_t;
 #define TASK_ID_INVALID 0x00
 #define MAX_LEDS 0x08
 #define MAX_TASKS 0x08
 
-//task scheduling policies
 typedef enum
 {
-SCHEDULE_FROM_LAST_RUN = 0,
-SCHEDULE_FIXED_RATE
+    SCHEDULE_FROM_LAST_RUN = 0,
+    SCHEDULE_FIXED_RATE
 } schedule_policy_t;
 
-typedef enum{
-TASK_READY = 0,
-TASK_RUNNING,
-TASK_BLOCKED
+typedef enum
+{
+    TASK_READY = 0,
+    TASK_RUNNING,
+    TASK_BLOCKED
 } task_state_t;
 
-typedef enum{
-    B, 
+typedef enum
+{
+    B,
     C,
     D,
     Z // invalid port
@@ -28,23 +32,22 @@ typedef enum{
 
 typedef enum
 {
-SCHEDULER_OK = 0,
-SCHEDULER_ERR_INVALID_TASK,
-SCHEDULER_ERR_FULL,
-SCHEDULER_ERR_INVALID_ID,
-SCHEDULER_ERR_INVALID_ARGUMENT
+    SCHEDULER_OK = 0,
+    SCHEDULER_ERR_INVALID_TASK,
+    SCHEDULER_ERR_FULL,
+    SCHEDULER_ERR_INVALID_ID,
+    SCHEDULER_ERR_INVALID_ARGUMENT
 } scheduler_status_t;
 
 typedef struct
 {
-void (*function)(void);
-void (*cleanup)(void);
-uint32_t interval_ms;
-schedule_policy_t policy;
-
-uint8_t leds[MAX_LEDS];
-uint8_t led_count;
-port_t port;
+    void (*function)(void);
+    void (*cleanup)(void);
+    uint32_t interval_ms;
+    schedule_policy_t policy;
+    uint8_t leds[MAX_LEDS];
+    uint8_t led_count;
+    port_t port;
 } task_config_t;
 
 typedef struct
@@ -61,7 +64,6 @@ typedef struct
     uint8_t led_count;
     port_t port;
 } task_entry_t;
-
 
 scheduler_status_t add_task(const task_config_t *config, task_id_t *id);
 void delete_one_task(task_id_t to_remove);

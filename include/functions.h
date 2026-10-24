@@ -21,6 +21,7 @@
 #define BLINK_INTERVAL_MS 300UL
 #define BRIGHTNESS_STEP 3
 #define BRIGHTNESS_UPDATE_MS 25U
+#define ERROR_LED_TIME 1000UL
 
 extern uint8_t brightness;
 extern int8_t brightness_step;
