@@ -3,12 +3,15 @@
 #include <avr/io.h>
 #include "task.h"
 #include "pwm.h"
+#include "time.h"
+#include "mutex.h"
 
 #define COUNTER_BIT0 PB2
 #define COUNTER_BIT1 PB3
 #define COUNTER_BIT2 PB4
 #define COUNTER_BIT3 PB5
 #define ERROR_LED PB0
+#define POWER_ON_LED PD4
 
 #define COUNTER_MASK ((1U << COUNTER_BIT0) | \
                       (1U << COUNTER_BIT1) | \
@@ -16,12 +19,13 @@
                       (1U << COUNTER_BIT3))
 
 #define BLINK_LED PB1
+#define PWM_LED PD6
 
-#define COUNTER_INTERVAL_MS 1000UL
-#define BLINK_INTERVAL_MS 300UL
+#define COUNTER_INTERVAL_MS MS_TO_TICKS(1000UL)
+#define BLINK_INTERVAL_MS MS_TO_TICKS(300UL)
 #define BRIGHTNESS_STEP 3
-#define BRIGHTNESS_UPDATE_MS 25U
-#define ERROR_LED_TIME 1000UL
+#define BRIGHTNESS_UPDATE_MS MS_TO_TICKS(25U)
+#define ERROR_LED_TIME MS_TO_TICKS(1000UL)
 
 extern uint8_t brightness;
 extern int8_t brightness_step;

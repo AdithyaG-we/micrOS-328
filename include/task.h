@@ -19,7 +19,8 @@ typedef enum
 {
     TASK_READY = 0,
     TASK_RUNNING,
-    TASK_BLOCKED
+    TASK_BLOCKED,
+    TASK_WAITING
 } task_state_t;
 
 typedef enum
@@ -45,6 +46,7 @@ typedef struct
     void (*cleanup)(void);
     uint32_t interval_ms;
     schedule_policy_t policy;
+    task_state_t state;
     uint8_t leds[MAX_LEDS];
     uint8_t led_count;
     port_t port;
@@ -74,5 +76,6 @@ uint8_t get_task_count(void);
 void set_next_task_id(uint8_t id);
 void set_task_count(uint8_t count);
 task_entry_t* get_task_by_index(uint8_t index);
+task_entry_t* get_task_by_id(uint8_t id);
 
 #endif

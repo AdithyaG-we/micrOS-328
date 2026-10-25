@@ -1,6 +1,6 @@
 #include "task.h"
 #include <avr/io.h>
-#include "timer.h"
+#include "time.h"
 #include <stddef.h>
 
 static uint8_t task_count = 0;
@@ -36,6 +36,7 @@ scheduler_status_t add_task(const task_config_t *config, task_id_t *id)
     task->function = config->function;
     task->cleanup = config->cleanup;
     task->interval_ms = config->interval_ms;
+    task->state = config->state;
     task->execution_count = 0; // conflict test point.
     task->led_count = config->led_count;
     task->port = config->port;
@@ -121,6 +122,7 @@ void delete_one_task(task_id_t to_remove)
             tasks[task_count - 1].cleanup = 0;
             tasks[task_count - 1].interval_ms = 0;
             tasks[task_count - 1].next_run = 0;
+            tasks[task_count - 1].state = TASK_BLOCKED;
             tasks[task_count - 1].policy = SCHEDULE_FROM_LAST_RUN;
             tasks[task_count - 1].execution_count = 0;
             tasks[task_count - 1].led_count = 0;
@@ -155,3 +157,12 @@ task_entry_t* get_task_by_index(uint8_t index){
     return NULL;
 }
 
+task_entry_t* get_task_by_id(uint8_t id){
+    uint8_t i = 0;
+    for(i = 0; i < task_count; i++){
+        if(tasks[i].id == id){
+            return &tasks[i];
+        }
+    }
+    return NULL;
+}

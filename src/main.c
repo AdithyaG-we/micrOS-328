@@ -3,7 +3,7 @@
 #include <stddef.h>
 #include <avr/sleep.h>
 
-#include "timer.h"
+#include "time.h"
 #include "scheduler.h"
 #include "interrupt.h"
 #include "task.h"
@@ -14,6 +14,10 @@ scheduler_status_t status;
 static uint8_t error_led_active = 0;
 static uint32_t error_led_turn_off_time = 0;
 
+mutex_t portb_mutex;
+mutex_t portc_mutex;
+mutex_t portd_mutex;
+
 static void gpio_init(void)
 {
     DDRB |= COUNTER_MASK;
@@ -21,10 +25,14 @@ static void gpio_init(void)
     DDRB |= (1U << BLINK_LED);
     DDRD &= ~(1 << PD2); // Set PD2 (INT0) as input
     DDRD &= ~(1 << PD3); // Set PD3 (INT1) as input
+    DDRD |= (1U << PWM_LED);
+    DDRD |= (1U << POWER_ON_LED);
 
     PORTB &= (uint8_t)~COUNTER_MASK;
     PORTB &= (uint8_t)~(1U << BLINK_LED);
     PORTB &= (uint8_t)~(1U << ERROR_LED);
+    PORTD &= (uint8_t)~(1U << PWM_LED);
+    PORTD |= (uint8_t)(1U << POWER_ON_LED);
 }
 
 int main(void)
@@ -36,6 +44,9 @@ int main(void)
     enable_INT1();
     pwm_led_init();
     set_sleep_mode(SLEEP_MODE_IDLE);
+    mutex_init(&portb_mutex);
+    mutex_init(&portc_mutex);
+    mutex_init(&portd_mutex);
 
     if (!scheduler_sanity_check())
     {
@@ -132,7 +143,9 @@ int main(void)
             PORTB &= (uint8_t)~(1U << ERROR_LED);
             error_led_active = 0;
         }
+        update_ready_list();
         scheduler_run_once();
         sleep_mode();
     }
+    PORTD &= ~(1U << POWER_ON_LED);
 }

@@ -1,5 +1,5 @@
 #include <avr/interrupt.h>
-#include "timer.h"
+#include "time.h"
 volatile uint8_t disable_counter_requested = 0; // compiler optimisation prevention.
 volatile uint8_t disable_breathing_requested = 0;
 volatile uint8_t disable_blinking_requested = 0;

@@ -1,15 +1,16 @@
 #include <stdint.h>
 #include "scheduler.h"
-#include "timer.h"
+#include "time.h"
 #include "task.h"
 #include <avr/io.h>
 #include <stddef.h>
+#include "mutex.h"
 
 void scheduler_init(scheduler_status_t *status)
 {
-    *status = SCHEDULER_OK;
     set_task_count(0);
     set_next_task_id(1); // conflict test point.
+    *status = SCHEDULER_OK;
 }
 
 uint8_t scheduler_sanity_check(void)
@@ -58,11 +59,18 @@ void scheduler_run_once(void)
     for (i = 0; i < task_count; i++)
     {
         task_entry_t *task = get_task_by_index(i);
+        if(task->state != TASK_READY){
+            continue;
+        }
         uint32_t now = timer_get_hardware_ticks();
 
         if ((int32_t)(now - task->next_run) >= 0)
         {
+            mutex_t* m = determine_mutex(task->id);
+            if(m != NULL && !mutex_lock(m, task->id)) continue;
+            task->state = TASK_RUNNING;
             task->function();
+            task->state = TASK_READY;
             task->execution_count++;
 
             if (task->policy == SCHEDULE_FIXED_RATE)
@@ -80,6 +88,7 @@ void scheduler_run_once(void)
             {
                 task->next_run = timer_get_hardware_ticks() + task->interval_ms;
             }
+            mutex_unlock(m);
         }
     }
 }
@@ -104,4 +113,16 @@ scheduler_status_t add_and_verify_task(const task_config_t *config, task_id_t *i
     }
 
     return SCHEDULER_OK;
+}
+
+void update_ready_list(){
+    uint8_t i = 0;
+    uint8_t task_count = get_task_count();
+    for(i = 0; i < task_count; i++){
+        task_entry_t* t = get_task_by_index(i);
+        if(t->state != TASK_WAITING) continue;
+        if(MS_TO_TICKS(t->next_run) <= timer_get_hardware_ticks()){
+            t->state = TASK_READY;
+        }
+    }
 }

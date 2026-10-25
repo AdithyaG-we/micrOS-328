@@ -2,7 +2,7 @@
 #include <avr/interrupt.h>
 #include <util/atomic.h>
 
-#include "timer.h"
+#include "time.h"
 
 #define TIMER1_PRESCALER 64UL
 //#define TIMER1_COMPARE   249UL  //250khz is the new frequency of the timer after prescaling, so 250khz/1000hz = 250
@@ -53,5 +53,5 @@ uint32_t timer_get_hardware_ticks(void){
             high++;
         }
     }
-    return (uint32_t)((high << 16) | low) / 250UL;
+    return (uint32_t)((high << 16) | low);
 }

@@ -18,6 +18,11 @@ void counter_task(void)
     }
     else
     {
+        // if(counter == 11){ // infinite loop added for visual demonstration.
+        //     while(1){
+
+        //     }
+        // }
         counter++;
     }
 

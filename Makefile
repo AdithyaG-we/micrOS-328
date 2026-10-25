@@ -7,13 +7,14 @@ SIZE = avr-size
 
 TARGET = build/main
 SRC = src/main.c \
-      src/timer.c \
+      src/time.c \
       src/scheduler.c \
       src/task.c \
       src/functions.c \
       src/interrupt.c \
       src/pwm.c \
-      src/isr.c
+      src/isr.c \
+      src/mutex.c
 
 CFLAGS = -mmcu=$(MCU) \
          -DF_CPU=$(F_CPU) \
