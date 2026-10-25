@@ -4,8 +4,8 @@
 
 #include "time.h"
 
-#define TIMER1_PRESCALER 64UL
-//#define TIMER1_COMPARE   249UL  //250khz is the new frequency of the timer after prescaling, so 250khz/1000hz = 250
+#define TIMER1_PRESCALER 64U
+//#define TIMER1_COMPARE 124U //triggers interrupt every 0.5ms.
 
 void timer_init(void)
 {
@@ -25,7 +25,7 @@ void timer_init(void)
 
     TIMSK1 = (1 << TOIE1);
 
-    TCCR1B = (1 << CS11) |
+    TCCR1B = (1 << CS11) | // not in ctc mode.
              (1 << CS10);
 
     sei();

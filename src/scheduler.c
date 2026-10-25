@@ -52,42 +52,85 @@ uint8_t scheduler_sanity_check(void)
     return 1;
 }
 
-void scheduler_run_once(void)
-{
-    uint8_t i;
+// void scheduler_run_once(void)
+// {
+//     uint8_t i;
+//     uint8_t task_count = get_task_count();
+//     for (i = 0; i < task_count; i++)
+//     {
+//         task_entry_t *task = get_task_by_index(i);
+//         if(task->state != TASK_READY){
+//             continue;
+//         }
+//         uint32_t now = timer_get_hardware_ticks();
+
+//         if ((int32_t)(now - task->next_run) >= 0)
+//         {
+//             mutex_t* m = determine_mutex(task->id);
+//             if(m != NULL && !mutex_lock(m, task->id)) continue;
+//             task->state = TASK_RUNNING;
+//             task->function();
+//             task->state = TASK_READY;
+//             task->execution_count++;
+
+//             if (task->policy == SCHEDULE_FIXED_RATE)
+//             {
+//                 task->next_run += task->interval_ms;
+
+//                 now = timer_get_hardware_ticks();
+
+//                 if ((int32_t)(now - task->next_run) >= 0)
+//                 {
+//                     task->next_run = now + task->interval_ms;
+//                 }
+//             }
+//             else
+//             {
+//                 task->next_run = timer_get_hardware_ticks() + task->interval_ms;
+//             }
+//             mutex_unlock(m);
+//         }
+//     }
+// }
+
+//priority scheduler:
+void scheduler_run_once(){
     uint8_t task_count = get_task_count();
-    for (i = 0; i < task_count; i++)
-    {
-        task_entry_t *task = get_task_by_index(i);
-        if(task->state != TASK_READY){
-            continue;
+    uint32_t now = timer_get_hardware_ticks();
+    task_entry_t* best_task = NULL;
+    uint8_t highest_priority = 0;
+
+    for(uint8_t i = 0; i < task_count; i++){
+        task_entry_t* task = get_task_by_index(i);
+        if(task == NULL || task->state != TASK_READY) continue;
+
+        if(best_task == NULL || task->priority > highest_priority){
+            best_task = task;
+            highest_priority = task->priority;
         }
-        uint32_t now = timer_get_hardware_ticks();
+    }
 
-        if ((int32_t)(now - task->next_run) >= 0)
-        {
-            mutex_t* m = determine_mutex(task->id);
-            if(m != NULL && !mutex_lock(m, task->id)) continue;
-            task->state = TASK_RUNNING;
-            task->function();
-            task->state = TASK_READY;
-            task->execution_count++;
+    //we found the best task, now run that task normally.
+    if(best_task != NULL){
+        mutex_t* m = determine_mutex(best_task->id);
+        if(m != NULL && !mutex_lock(m, best_task->id)) return;
 
-            if (task->policy == SCHEDULE_FIXED_RATE)
-            {
-                task->next_run += task->interval_ms;
+        best_task->state = TASK_RUNNING;
+        best_task->function();
+        best_task->state = TASK_WAITING;
+        best_task->execution_count++;
 
-                now = timer_get_hardware_ticks();
-
-                if ((int32_t)(now - task->next_run) >= 0)
-                {
-                    task->next_run = now + task->interval_ms;
-                }
+        if(best_task->policy == SCHEDULE_FIXED_RATE){
+            best_task->next_run += best_task->interval_ms;
+            now = timer_get_hardware_ticks();
+            if((int32_t)(now - best_task->next_run) >= 0){
+                best_task->next_run = now + best_task->interval_ms;
             }
-            else
-            {
-                task->next_run = timer_get_hardware_ticks() + task->interval_ms;
-            }
+        }
+        else{
+            best_task->next_run = timer_get_hardware_ticks() + best_task->interval_ms;
+        }
+        if(m != NULL){
             mutex_unlock(m);
         }
     }
@@ -121,7 +164,7 @@ void update_ready_list(){
     for(i = 0; i < task_count; i++){
         task_entry_t* t = get_task_by_index(i);
         if(t->state != TASK_WAITING) continue;
-        if(MS_TO_TICKS(t->next_run) <= timer_get_hardware_ticks()){
+        if(t->next_run <= timer_get_hardware_ticks()){
             t->state = TASK_READY;
         }
     }

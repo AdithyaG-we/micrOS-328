@@ -36,7 +36,8 @@ scheduler_status_t add_task(const task_config_t *config, task_id_t *id)
     task->function = config->function;
     task->cleanup = config->cleanup;
     task->interval_ms = config->interval_ms;
-    task->state = config->state;
+    task->state = TASK_WAITING;
+    task->priority = config->priority;
     task->execution_count = 0; // conflict test point.
     task->led_count = config->led_count;
     task->port = config->port;
@@ -123,6 +124,7 @@ void delete_one_task(task_id_t to_remove)
             tasks[task_count - 1].interval_ms = 0;
             tasks[task_count - 1].next_run = 0;
             tasks[task_count - 1].state = TASK_BLOCKED;
+            tasks[task_count - 1].priority = 0;
             tasks[task_count - 1].policy = SCHEDULE_FROM_LAST_RUN;
             tasks[task_count - 1].execution_count = 0;
             tasks[task_count - 1].led_count = 0;

@@ -43,82 +43,42 @@ int main(void)
     enable_INT0();
     enable_INT1();
     pwm_led_init();
-    set_sleep_mode(SLEEP_MODE_IDLE);
     mutex_init(&portb_mutex);
     mutex_init(&portc_mutex);
     mutex_init(&portd_mutex);
 
     if (!scheduler_sanity_check())
     {
-        // keeps the blink led ON to indicate a failure in the self-test.
         PORTB |= (1U << ERROR_LED);
-        while (1)
-        {
-            // Handle error
-        }
+        while (1){}
     }
 
     status = add_and_verify_task(&counter_task_config, &counter_task_id);
     if (status != SCHEDULER_OK)
     {
-        // keeps the blink led ON to indicate a failure in the self-test.
         PORTB |= (1U << ERROR_LED);
-        while (1)
-        {
-            // Handle error
-        }
+        while (1){}
     }
 
     status = add_and_verify_task(&blink_task_config, &blink_task_id);
     if (status != SCHEDULER_OK)
     {
-        // keeps the blink led ON to indicate a failure in the self-test.
         PORTB |= (1U << ERROR_LED);
-        while (1)
-        {
-            // Handle error
-        }
+        while (1){}
     }
 
     if (add_task(&breathe_task_config, &breathe_task_id) != SCHEDULER_OK)
     {
         pwm_led_set_duty(0);
         PORTB |= (1U << ERROR_LED);
-        for (;;)
-        {
-            /* Couldn't register breathing task. */
-        }
-    }
-    uint32_t count = 0;
-    while (count < 300000)
-    {
-        count++;
-        scheduler_run_once();
-    }
-    delete_one_task(counter_task_id);
-    count = 0;
-    while (count < 300000)
-    {
-        scheduler_run_once();
-        count++;
-    }
-    status = add_and_verify_task(&counter_task_config, &counter_task_id); // ensure correct task is added after deletion.
-    volatile uint32_t dummy = 0;                                          // to get uneven spacing in the increment of counter.
-    while (dummy < 30000)
-    {
-        // scheduler_run_once();
-        dummy++;
+        for (;;){}
     }
     status = add_and_verify_task(&counter_task_config, &counter_task_id); // ensure correct task is added after deletion.
 
     if (status != SCHEDULER_OK)
     {
-        // keeps the blink led ON to indicate a failure in the self-test.
         PORTB |= (1U << ERROR_LED);
-        while (1)
-        {
-            // Handle error
-        }
+        while (1){}
     }
     while (1)
     {
@@ -145,7 +105,6 @@ int main(void)
         }
         update_ready_list();
         scheduler_run_once();
-        sleep_mode();
     }
     PORTD &= ~(1U << POWER_ON_LED);
 }
