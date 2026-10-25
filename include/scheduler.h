@@ -14,4 +14,6 @@ scheduler_status_t add_and_verify_task(const task_config_t *config, task_id_t *i
 
 void update_ready_list();
 
+uint32_t determine_wake_up_time();
+
 #endif

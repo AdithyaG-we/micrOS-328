@@ -46,6 +46,7 @@ int main(void)
     mutex_init(&portb_mutex);
     mutex_init(&portc_mutex);
     mutex_init(&portd_mutex);
+    uint32_t cpu_wake_up_time;
 
     if (!scheduler_sanity_check())
     {
@@ -105,6 +106,8 @@ int main(void)
         }
         update_ready_list();
         scheduler_run_once();
+        cpu_wake_up_time = determine_wake_up_time();
+        sleep_until(cpu_wake_up_time);
     }
     PORTD &= ~(1U << POWER_ON_LED);
 }

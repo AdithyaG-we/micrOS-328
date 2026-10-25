@@ -169,3 +169,25 @@ void update_ready_list(){
         }
     }
 }
+
+uint32_t determine_wake_up_time(){
+    uint32_t wake_up_time = 0xFFFFFFFF;
+    uint8_t task_count = get_task_count();
+    uint8_t waiting = 0;
+    if(!task_count) return timer_get_hardware_ticks();
+
+    for(uint8_t i = 0; i < task_count; i++){
+        task_entry_t* t = get_task_by_index(i);
+        if(t == NULL) continue;
+        if(t->state == TASK_READY) return timer_get_hardware_ticks();
+        else if(t->state == TASK_BLOCKED) continue;
+        if(t->state == TASK_WAITING && (int32_t)(wake_up_time - t->next_run) > 0){
+            wake_up_time = t->next_run;
+            waiting = 1;
+        }
+    }
+    if(!waiting){
+        return timer_get_hardware_ticks();
+    }
+    return wake_up_time;
+}

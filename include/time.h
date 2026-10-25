@@ -12,5 +12,6 @@ extern volatile uint16_t timer1_overflow_count;
 void timer_init(void);
 uint32_t timer_get_ticks(void);
 uint32_t timer_get_hardware_ticks(void);
+void sleep_until(uint32_t timestamp);
 
 #endif

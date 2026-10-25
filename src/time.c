@@ -1,6 +1,7 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <util/atomic.h>
+#include <avr/sleep.h>
 
 #include "time.h"
 
@@ -54,4 +55,25 @@ uint32_t timer_get_hardware_ticks(void){
         }
     }
     return (uint32_t)((high << 16) | low);
+}
+
+void sleep_until(uint32_t timestamp){
+    while(1){
+        uint32_t now = timer_get_hardware_ticks();
+        int32_t remaining = timestamp - now;
+        if(remaining <= 0) break;
+
+        uint16_t sleep_slice = 60000U;
+        if((uint32_t)(remaining) < 60000UL){
+            sleep_slice = (uint16_t)remaining;
+        }
+        if(sleep_slice < 20U) break; //prevent race condition.
+        ATOMIC_BLOCK(ATOMIC_RESTORESTATE){
+            OCR1A = (uint16_t)(TCNT1 + sleep_slice);
+            TIFR1 = (1 << OCF1A);
+            TIMSK1 |= (1 << OCIE1A);
+        }
+        sleep_mode();
+        TIMSK1 &= ~(1 << OCIE1A);
+    }
 }

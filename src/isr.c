@@ -24,3 +24,7 @@ ISR(TIMER1_OVF_vect)
 {
     timer1_overflow_count++;
 }
+
+ISR(TIMER1_COMPA_vect){
+    TIMSK1 &= ~(1 << OCIE1A);
+}
