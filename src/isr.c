@@ -12,7 +12,7 @@ ISR(INT0_vect){
 
 ISR(INT1_vect){
     uint32_t now = timer_get_hardware_ticks();
-    if((uint32_t)(now - last_trigger) < 5000){
+    if((uint32_t)(now - last_trigger) < MS_TO_TICKS(250)){
         return;
     }
     last_trigger = now;
