@@ -6,7 +6,7 @@ void mutex_init(mutex_t *m)
 {
     m->locked = 0;
     m->owner = TASK_ID_INVALID;
-    m->waiting_task_id = TASK_ID_INVALID;
+    m->mask = 0x00;
 }
 
 uint8_t mutex_lock(mutex_t *m, task_id_t task_id)
@@ -26,16 +26,7 @@ uint8_t mutex_lock(mutex_t *m, task_id_t task_id)
             if (t != NULL)
             {
                 t->state = TASK_BLOCKED;
-            }
-            if(m->waiting_task_id == TASK_ID_INVALID){
-                m->waiting_task_id = task_id;
-            }
-            else{
-                task_entry_t* arrived = get_task_by_id(task_id);
-                task_entry_t* t_existing = get_task_by_id(m->waiting_task_id);
-                if(arrived->priority > t_existing->priority){
-                    m->waiting_task_id = t->id;
-                }
+                m->mask |= (1U << (t->id - 1));
             }
         }
     }
@@ -48,14 +39,15 @@ void mutex_unlock(mutex_t *m)
     {
         m->locked = 0;
         m->owner = TASK_ID_INVALID;
-        if (m->waiting_task_id != TASK_ID_INVALID)
+        if (m->mask)
         {
-            task_entry_t *t = get_task_by_id(m->waiting_task_id);
-            if (t != NULL)
-            {
-                t->state = TASK_READY;
+            for(int i = 0; i < 8; i++){
+                if(m->mask & (1U << i)){
+                    task_entry_t* t = get_task_by_id(i+1);
+                    t->state = TASK_READY;
+                }
             }
-            m->waiting_task_id = TASK_ID_INVALID;
+            m->mask = 0x00;
         }
     }
 }

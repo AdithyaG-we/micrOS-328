@@ -7,7 +7,7 @@
 typedef struct{
     volatile uint8_t locked;
     task_id_t owner;
-    task_id_t waiting_task_id;
+    uint8_t mask;
 } mutex_t;
 
 extern mutex_t portb_mutex;

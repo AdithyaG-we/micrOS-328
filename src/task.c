@@ -103,9 +103,10 @@ void delete_one_task(task_id_t to_remove)
     if(portb_mutex.locked && portb_mutex.owner == to_remove) mutex_unlock(&portb_mutex);
     if(portc_mutex.locked && portc_mutex.owner == to_remove) mutex_unlock(&portc_mutex);
     if(portd_mutex.locked && portd_mutex.owner == to_remove) mutex_unlock(&portd_mutex);
-    if(portb_mutex.waiting_task_id == to_remove) portb_mutex.waiting_task_id = TASK_ID_INVALID;
-    if(portc_mutex.waiting_task_id == to_remove) portc_mutex.waiting_task_id = TASK_ID_INVALID;
-    if(portd_mutex.waiting_task_id == to_remove) portd_mutex.waiting_task_id = TASK_ID_INVALID;
+    portb_mutex.mask &= ~(1U <<(to_remove - 1));
+    portc_mutex.mask &= ~(1U <<(to_remove - 1));
+    portd_mutex.mask &= ~(1U <<(to_remove - 1));
+
     for (uint8_t i = 0; i < task_count; i++)
     {
         if (tasks[i].id == to_remove)
