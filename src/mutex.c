@@ -27,7 +27,16 @@ uint8_t mutex_lock(mutex_t *m, task_id_t task_id)
             {
                 t->state = TASK_BLOCKED;
             }
-            m->waiting_task_id = task_id;
+            if(m->waiting_task_id == TASK_ID_INVALID){
+                m->waiting_task_id = task_id;
+            }
+            else{
+                task_entry_t* arrived = get_task_by_id(task_id);
+                task_entry_t* t_existing = get_task_by_id(m->waiting_task_id);
+                if(arrived->priority > t_existing->priority){
+                    m->waiting_task_id = t->id;
+                }
+            }
         }
     }
     return acquired;

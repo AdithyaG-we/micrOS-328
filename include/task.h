@@ -47,8 +47,6 @@ typedef struct
     uint32_t interval_ms;
     schedule_policy_t policy;
     uint8_t priority;
-    uint8_t leds[MAX_LEDS];
-    uint8_t led_count;
     port_t port;
 } task_config_t;
 
@@ -63,8 +61,6 @@ typedef struct
     task_state_t state;
     uint8_t priority;
     uint32_t execution_count;
-    uint8_t leds[MAX_LEDS];
-    uint8_t led_count;
     port_t port;
 } task_entry_t;
 

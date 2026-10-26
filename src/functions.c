@@ -79,8 +79,6 @@ const task_config_t counter_task_config = {
     .interval_ms = COUNTER_INTERVAL_MS,
     .policy = SCHEDULE_FIXED_RATE,
     .priority = 2,
-    .led_count = 4,
-    .leds = {COUNTER_BIT0, COUNTER_BIT1, COUNTER_BIT2, COUNTER_BIT3},
     .port = B
     };
 
@@ -90,8 +88,6 @@ const task_config_t blink_task_config = {
     .interval_ms = BLINK_INTERVAL_MS,
     .policy = SCHEDULE_FROM_LAST_RUN,
     .priority = 2,
-    .led_count = 1,
-    .leds = {BLINK_LED},
     .port = B
     };
 
@@ -101,7 +97,5 @@ const task_config_t breathe_task_config = {
     .interval_ms = BRIGHTNESS_UPDATE_MS,
     .policy = SCHEDULE_FIXED_RATE,
     .priority = 1,
-    .led_count = 1,
-    .leds = {PD6},
     .port = D
     };

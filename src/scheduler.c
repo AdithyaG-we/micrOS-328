@@ -164,7 +164,7 @@ void update_ready_list(){
     for(i = 0; i < task_count; i++){
         task_entry_t* t = get_task_by_index(i);
         if(t->state != TASK_WAITING) continue;
-        if(t->next_run <= timer_get_hardware_ticks()){
+        if((int32_t)(timer_get_hardware_ticks() - t->next_run) >= 0){
             t->state = TASK_READY;
         }
     }
@@ -181,7 +181,7 @@ uint32_t determine_wake_up_time(){
         if(t == NULL) continue;
         if(t->state == TASK_READY) return timer_get_hardware_ticks();
         else if(t->state == TASK_BLOCKED) continue;
-        if(t->state == TASK_WAITING && (int32_t)(wake_up_time - t->next_run) > 0){
+        if(t->state == TASK_WAITING && (int64_t)(wake_up_time - t->next_run) > 0){
             wake_up_time = t->next_run;
             waiting = 1;
         }

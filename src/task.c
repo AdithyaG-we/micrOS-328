@@ -2,6 +2,7 @@
 #include <avr/io.h>
 #include "time.h"
 #include <stddef.h>
+#include "mutex.h"
 
 static uint8_t task_count = 0;
 static uint8_t next_task_id = 1;
@@ -11,7 +12,7 @@ scheduler_status_t add_task(const task_config_t *config, task_id_t *id)
 {
     if (config == 0 ||
         config->function == 0 ||
-        config->interval_ms == 0 || config->led_count > MAX_LEDS)
+        config->interval_ms == 0)
     {
         return SCHEDULER_ERR_INVALID_ARGUMENT;
     }
@@ -39,12 +40,7 @@ scheduler_status_t add_task(const task_config_t *config, task_id_t *id)
     task->state = TASK_WAITING;
     task->priority = config->priority;
     task->execution_count = 0; // conflict test point.
-    task->led_count = config->led_count;
     task->port = config->port;
-    for (uint8_t i = 0; i < task->led_count; i++)
-    {
-        task->leds[i] = config->leds[i];
-    }
     if (config->policy == SCHEDULE_FIXED_RATE)
     {
         task->policy = SCHEDULE_FIXED_RATE;
@@ -104,6 +100,12 @@ void update_next_task_id(void)
 
 void delete_one_task(task_id_t to_remove)
 {
+    if(portb_mutex.locked && portb_mutex.owner == to_remove) mutex_unlock(&portb_mutex);
+    if(portc_mutex.locked && portc_mutex.owner == to_remove) mutex_unlock(&portc_mutex);
+    if(portd_mutex.locked && portd_mutex.owner == to_remove) mutex_unlock(&portd_mutex);
+    if(portb_mutex.waiting_task_id == to_remove) portb_mutex.waiting_task_id = TASK_ID_INVALID;
+    if(portc_mutex.waiting_task_id == to_remove) portc_mutex.waiting_task_id = TASK_ID_INVALID;
+    if(portd_mutex.waiting_task_id == to_remove) portd_mutex.waiting_task_id = TASK_ID_INVALID;
     for (uint8_t i = 0; i < task_count; i++)
     {
         if (tasks[i].id == to_remove)
@@ -127,7 +129,6 @@ void delete_one_task(task_id_t to_remove)
             tasks[task_count - 1].priority = 0;
             tasks[task_count - 1].policy = SCHEDULE_FROM_LAST_RUN;
             tasks[task_count - 1].execution_count = 0;
-            tasks[task_count - 1].led_count = 0;
             tasks[task_count - 1].port = Z; // default to invalid port.
             task_count--;
             update_next_task_id(); // set next_task_id to the removed task's ID
