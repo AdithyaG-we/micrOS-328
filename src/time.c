@@ -67,13 +67,16 @@ void sleep_until(uint32_t timestamp){
         if((uint32_t)(remaining) < 60000UL){
             sleep_slice = (uint16_t)remaining;
         }
-        if(sleep_slice < 20U) break; //prevent race condition.
-        ATOMIC_BLOCK(ATOMIC_RESTORESTATE){
-            OCR1A = (uint16_t)(TCNT1 + sleep_slice);
-            TIFR1 = (1 << OCF1A);
-            TIMSK1 |= (1 << OCIE1A);
-        }
-        sleep_mode();
+
+        cli();
+        OCR1A = (uint16_t)(TCNT1 + sleep_slice);
+        TIFR1 = (1 << OCF1A);
+        TIMSK1 |= (1 << OCIE1A);
+        sleep_enable();
+        
+        sei();
+        sleep_cpu();
+        sleep_disable();
         TIMSK1 &= ~(1 << OCIE1A);
     }
 }
