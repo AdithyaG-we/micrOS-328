@@ -115,9 +115,4 @@ int main(void)
         sleep_until(min(cpu_wake_up_time, error_led_turn_off_time));
     }
     PORTD &= ~(1U << POWER_ON_LED);
-}
-
-
-// update the delete one task function to prevent deadlock caused due to mutex holding by removed task. done
-// mutex waiting task id should be determined by task priority.
-// equal priority tasks are being starved in scheduler_run_once()
+}   
