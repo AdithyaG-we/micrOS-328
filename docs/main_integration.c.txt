@@ -1,0 +1,28 @@
+/* 1. Add beside the other includes at the top of src/main.c. */
+#include "led_pattern.h"
+
+/* 2. Inside main(), replace the FIRST counter registration AND its
+ * error-check block with this block, after mutex_init() and
+ * scheduler_sanity_check(), before the blink task registration.
+ */
+led_pattern_init();
+status = add_and_verify_task(&led_pattern_task_config, &led_pattern_task_id);
+if (status != SCHEDULER_OK)
+{
+    PORTB |= (1U << ERROR_LED);
+    while (1) {}
+}
+
+
+/* BUILD SETUP:
+ * Copy led_pattern.h into include/ and led_pattern.c into src/.
+ * Add this standalone line AFTER the complete SRC list in Makefile
+ * (after the src/mutex.c line):
+ *
+ * SRC += src/led_pattern.c
+ *
+ * Rebuild using make.
+ * First state appears 250 ms after registration. Each step lasts
+ * 250 ms: the 16-step sequence repeats every 4 seconds, subject to
+ * scheduler delays. Change LED_PATTERN_STEP_MS to adjust speed.
+ */
