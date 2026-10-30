@@ -6,7 +6,6 @@
 #include "time.h"
 
 #define TIMER1_PRESCALER 64U
-//#define TIMER1_COMPARE 124U //triggers interrupt every 0.5ms.
 
 void timer_init(void)
 {

@@ -8,6 +8,7 @@ typedef uint8_t task_id_t;
 #define TASK_ID_INVALID 0x00
 #define MAX_LEDS 0x08
 #define MAX_TASKS 0x08
+#define TASK_STACK_SIZE 96U
 
 typedef enum
 {
@@ -48,10 +49,12 @@ typedef struct
     schedule_policy_t policy;
     uint8_t priority;
     port_t port;
+    uint8_t multi_stage;
 } task_config_t;
 
 typedef struct
 {
+    uint8_t *sp;
     void (*function)(void);
     void (*cleanup)(void);
     uint8_t id;
@@ -62,6 +65,7 @@ typedef struct
     uint8_t priority;
     uint32_t execution_count;
     port_t port;
+    uint8_t multi_stage;
 } task_entry_t;
 
 scheduler_status_t add_task(const task_config_t *config, task_id_t *id);

@@ -41,6 +41,7 @@ scheduler_status_t add_task(const task_config_t *config, task_id_t *id)
     task->priority = config->priority;
     task->execution_count = 0; // conflict test point.
     task->port = config->port;
+    task->multi_stage = config->multi_stage;
     if (config->policy == SCHEDULE_FIXED_RATE)
     {
         task->policy = SCHEDULE_FIXED_RATE;
@@ -131,6 +132,7 @@ void delete_one_task(task_id_t to_remove)
             tasks[task_count - 1].policy = SCHEDULE_FROM_LAST_RUN;
             tasks[task_count - 1].execution_count = 0;
             tasks[task_count - 1].port = Z; // default to invalid port.
+            tasks[task_count - 1].multi_stage = 0;
             task_count--;
             update_next_task_id(); // set next_task_id to the removed task's ID
             return;

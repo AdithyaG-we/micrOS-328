@@ -65,14 +65,12 @@ int main(void)
         PORTB |= (1U << ERROR_LED);
         while (1){}
     }
-
     status = add_and_verify_task(&blink_task_config, &blink_task_id);
     if (status != SCHEDULER_OK)
     {
         PORTB |= (1U << ERROR_LED);
         while (1){}
     }
-
     if (add_task(&breathe_task_config, &breathe_task_id) != SCHEDULER_OK)
     {
         pwm_led_set_duty(0);
@@ -80,18 +78,24 @@ int main(void)
         for (;;){}
     }
     status = add_and_verify_task(&counter_task_config, &counter_task_id); // ensure correct task is added after deletion.
-
     if (status != SCHEDULER_OK)
     {
         PORTB |= (1U << ERROR_LED);
         while (1){}
     }
+    status = add_and_verify_task(&led_pattern_task_config, &led_pattern_task_id);
+    task_entry_t* led = get_task_by_id(led_pattern_task_id);
+    led->state = TASK_BLOCKED;
     while (1)
     {
-        if (disable_breathing_requested == 1)
+        if (trigger_led_pattern_requested == 1)
         {
-            delete_one_task(breathe_task_id);
-            disable_breathing_requested = 0;
+            trigger_led_pattern_requested = 0;
+            task_entry_t* t = get_task_by_id(led_pattern_task_id);
+            if(t != NULL && t->state == TASK_BLOCKED){
+                t->next_run = timer_get_hardware_ticks();
+                t->state = TASK_READY;
+            }
         }
         if (disable_breathing_requested == 2)
         {
