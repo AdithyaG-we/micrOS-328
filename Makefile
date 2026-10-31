@@ -14,7 +14,8 @@ SRC = src/main.c \
       src/interrupt.c \
       src/pwm.c \
       src/isr.c \
-      src/mutex.c
+      src/mutex.c \
+      src/context_switch.S
 
 CFLAGS = -mmcu=$(MCU) \
          -DF_CPU=$(F_CPU) \

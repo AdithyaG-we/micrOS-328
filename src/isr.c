@@ -17,6 +17,13 @@ ISR(INT0_vect){
     }
     last_trigger_0 = now;
     trigger_led_pattern_requested = 1;
+    task_entry_t* sup = get_task_by_id(supervisor_task_id);
+    if(sup != NULL){
+        sup->state = TASK_READY;
+        sup->next_run = now;
+        next_task_to_run = sup;
+    }
+    task_yield();
 }
 
 ISR(INT1_vect){
@@ -26,6 +33,13 @@ ISR(INT1_vect){
     }
     last_trigger_1 = now;
     disable_breathing_requested = 2;
+    task_entry_t* sup = get_task_by_id(supervisor_task_id);
+    if(sup != NULL){
+        sup->state = TASK_READY;
+        sup->next_run = now;
+        next_task_to_run = sup;
+    }
+    task_yield();
 }
 
 volatile uint16_t timer1_overflow_count = 0;
@@ -36,4 +50,8 @@ ISR(TIMER1_OVF_vect)
 
 ISR(TIMER1_COMPA_vect){
     TIMSK1 &= ~(1 << OCIE1A);
+}
+ISR(TIMER1_COMPB_vect){
+    TIMSK1 &= ~(1 << OCIE1B);
+    task_yield();
 }

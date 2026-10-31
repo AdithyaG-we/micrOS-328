@@ -138,7 +138,7 @@ void scheduler_run_once(){
 
 scheduler_status_t add_and_verify_task(const task_config_t *config, task_id_t *id)
 {
-    if (config->function == NULL || config->interval_ms == 0)
+    if (config->function == NULL)
     {
         return SCHEDULER_ERR_INVALID_ARGUMENT;
     }

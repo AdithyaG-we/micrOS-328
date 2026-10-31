@@ -68,15 +68,27 @@ typedef struct
     uint8_t multi_stage;
 } task_entry_t;
 
+extern task_entry_t* current_running_task;
+extern task_entry_t* next_task_to_run;
+
 scheduler_status_t add_task(const task_config_t *config, task_id_t *id);
 void delete_one_task(task_id_t to_remove);
+
 scheduler_status_t scheduler_get_execution_count(task_id_t id, uint32_t *count_out);
 void update_next_task_id(void);
+
 uint8_t get_next_task_id(void);
 uint8_t get_task_count(void);
+
 void set_next_task_id(uint8_t id);
 void set_task_count(uint8_t count);
+
 task_entry_t* get_task_by_index(uint8_t index);
 task_entry_t* get_task_by_id(uint8_t id);
+
+void task_yield(void);
+void task_delay_ms(uint32_t ms);
+void scheduler_start(void);
+void scheduler_context_switch(void);
 
 #endif
