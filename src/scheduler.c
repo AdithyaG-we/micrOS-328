@@ -113,11 +113,11 @@ void scheduler_run_once(){
     //we found the best task, now run that task normally.
     if(best_task != NULL){
         mutex_t* m = determine_mutex(best_task->id);
-        if(m != NULL && !mutex_lock(m, best_task->id)) return;
+        if(m != NULL && m->owner != best_task->id && !mutex_lock(m, best_task->id)) return;
 
         best_task->state = TASK_RUNNING;
         best_task->function();
-        best_task->state = TASK_WAITING;
+        if(best_task->state == TASK_RUNNING) best_task->state = TASK_WAITING;
         best_task->execution_count++;
 
         if(best_task->policy == SCHEDULE_FIXED_RATE){
@@ -130,7 +130,7 @@ void scheduler_run_once(){
         else{
             best_task->next_run = timer_get_hardware_ticks() + best_task->interval_ms;
         }
-        if(m != NULL){
+        if(m != NULL && !best_task->multi_stage){
             mutex_unlock(m);
         }
     }
@@ -138,7 +138,7 @@ void scheduler_run_once(){
 
 scheduler_status_t add_and_verify_task(const task_config_t *config, task_id_t *id)
 {
-    if (config->function == NULL || config->interval_ms == 0)
+    if (config->function == NULL)
     {
         return SCHEDULER_ERR_INVALID_ARGUMENT;
     }

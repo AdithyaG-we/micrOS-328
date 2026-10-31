@@ -10,13 +10,10 @@
 #include "pwm.h"
 #include "functions.h"
 
-scheduler_status_t status;
-static uint8_t error_led_active = 0;
-static uint32_t error_led_turn_off_time = 0;
-
 mutex_t portb_mutex;
 mutex_t portc_mutex;
 mutex_t portd_mutex;
+scheduler_status_t status;
 
 uint32_t min(uint32_t a, uint32_t b){
     if(a <= b) return a;
@@ -51,7 +48,6 @@ int main(void)
     mutex_init(&portb_mutex);
     mutex_init(&portc_mutex);
     mutex_init(&portd_mutex);
-    uint32_t cpu_wake_up_time;
 
     if (!scheduler_sanity_check())
     {
@@ -59,60 +55,33 @@ int main(void)
         while (1){}
     }
 
-    status = add_and_verify_task(&counter_task_config, &counter_task_id);
-    if (status != SCHEDULER_OK)
-    {
-        PORTB |= (1U << ERROR_LED);
-        while (1){}
-    }
+    add_and_verify_task(&counter_task_config, &counter_task_id);
+    add_and_verify_task(&blink_task_config, &blink_task_id);
+    add_and_verify_task(&breathe_task_config, &breathe_task_id);
 
-    status = add_and_verify_task(&blink_task_config, &blink_task_id);
-    if (status != SCHEDULER_OK)
-    {
-        PORTB |= (1U << ERROR_LED);
-        while (1){}
-    }
+    add_and_verify_task(&led_pattern_task_config, &led_pattern_task_id);
+    task_entry_t* led = get_task_by_id(led_pattern_task_id);
+    if(led != NULL) led->state = TASK_BLOCKED;
 
-    if (add_task(&breathe_task_config, &breathe_task_id) != SCHEDULER_OK)
-    {
-        pwm_led_set_duty(0);
-        PORTB |= (1U << ERROR_LED);
-        for (;;){}
-    }
-    status = add_and_verify_task(&counter_task_config, &counter_task_id); // ensure correct task is added after deletion.
+    add_and_verify_task(&supervisor_task_config, &supervisor_task_id);
+    task_entry_t* t = get_task_by_id(supervisor_task_id);
+    if(t != NULL) t->state = TASK_BLOCKED;
+    task_id_t idle_id;
 
-    if (status != SCHEDULER_OK)
-    {
+    add_and_verify_task(&error_led_task_config, &error_led_task_id);
+    t = get_task_by_id(error_led_task_id);
+    if(t != NULL) t->state = TASK_BLOCKED;
+    
+    add_task(&idle_task_config, &idle_id);
+
+    scheduler_start();
+
+    //should never reach this point.
+    while(1){
+        PORTB |= COUNTER_MASK;
         PORTB |= (1U << ERROR_LED);
-        while (1){}
+        PORTB |= (1U << BLINK_LED);
+        PORTD |= (1U << PWM_LED);
+        PORTD &= ~(1U << POWER_ON_LED);
     }
-    while (1)
-    {
-        if (disable_breathing_requested == 1)
-        {
-            delete_one_task(breathe_task_id);
-            disable_breathing_requested = 0;
-        }
-        if (disable_breathing_requested == 2)
-        {
-            status = add_and_verify_task(&breathe_task_config, &breathe_task_id);
-            if (status != SCHEDULER_OK)
-            {
-                PORTB |= (1U << ERROR_LED);
-                error_led_turn_off_time = timer_get_hardware_ticks() + ERROR_LED_TIME;
-                error_led_active = 1;
-            }
-            disable_breathing_requested = 0;
-        }
-        if (error_led_active && (int32_t)(timer_get_hardware_ticks() - error_led_turn_off_time) >= 0)
-        {
-            PORTB &= (uint8_t)~(1U << ERROR_LED);
-            error_led_active = 0;
-        }
-        update_ready_list();
-        scheduler_run_once();
-        cpu_wake_up_time = determine_wake_up_time();
-        sleep_until(min(cpu_wake_up_time, error_led_turn_off_time));
-    }
-    PORTD &= ~(1U << POWER_ON_LED);
 }   

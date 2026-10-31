@@ -2,76 +2,233 @@
 #include "task.h"
 #include <avr/io.h>
 #include "pwm.h"
+#include "time.h"
+#include "scheduler.h"
 static uint8_t counter = 0;
 
 task_id_t counter_task_id = TASK_ID_INVALID;
 task_id_t blink_task_id = TASK_ID_INVALID;
 task_id_t breathe_task_id = TASK_ID_INVALID;
+task_id_t led_pattern_task_id = TASK_ID_INVALID;
+task_id_t supervisor_task_id = TASK_ID_INVALID;
+task_id_t error_led_task_id = TASK_ID_INVALID;
+
 uint8_t brightness = 0;
 int8_t brightness_step = BRIGHTNESS_STEP;
+scheduler_status_t s;
+
+static uint8_t error_led_active = 0;
+static uint32_t error_led_turn_off_time = 0;
+static uint8_t step = 0;
+
+const uint8_t pattern[LED_PATTERN_STEPS] = {
+    0x01, 0x0A, 0x04, 0x0F,
+    0x02, 0x09, 0x00, 0x06,
+    0x08, 0x03, 0x0C, 0x01,
+    0x07, 0x00, 0x0A, 0x05};
 
 void counter_task(void)
 {
-    if (counter == 15)
+    mutex_t *m = determine_mutex(counter_task_id);
+    while (1)
     {
-        counter = 0;
+        while (!mutex_lock(m, counter_task_id))
+        {
+            task_yield();
+        }
+        counter = (counter + 1) & 0x0F;
+        PORTB = (PORTB & (uint8_t)~COUNTER_MASK) |
+                (uint8_t)((counter & 0x0F) << COUNTER_BIT0);
+        mutex_unlock(m);
+        task_delay_ms(1000);
     }
-    else
-    {
-        // if(counter == 11){ // infinite loop added for visual demonstration.
-        //     while(1){
-
-        //     }
-        // }
-        counter++;
-    }
-
-    PORTB = (PORTB & (uint8_t)~COUNTER_MASK) |
-            (uint8_t)((counter & 0x0F) << COUNTER_BIT0);
 }
 
-void counter_task_cleanup(void){
+void counter_task_cleanup(void)
+{
     PORTB &= (uint8_t)~COUNTER_MASK;
     counter = 0;
 }
 
 void blink_task(void)
 {
-    PORTB ^= (1U << BLINK_LED);
+    mutex_t *m = determine_mutex(blink_task_id);
+    while (1)
+    {
+        while (!mutex_lock(m, blink_task_id))
+        {
+            task_yield();
+        }
+
+        PORTB ^= (1U << BLINK_LED);
+        mutex_unlock(m);
+        task_delay_ms(300);
+    }
 }
 
-void blink_task_cleanup(void){
+void blink_task_cleanup(void)
+{
     PORTB &= (uint8_t)~(1U << BLINK_LED);
 }
 
 void led_breathe_task(void)
 {
-    int16_t next = (int16_t)brightness + (int16_t)brightness_step;
+    mutex_t *m = determine_mutex(breathe_task_id);
+    while (1)
+    {
+        while (!mutex_lock(m, breathe_task_id))
+        {
+            task_yield();
+        }
+        int16_t next = (int16_t)brightness + (int16_t)brightness_step;
 
-    if (next >= 255)
-    {
-        brightness = 255;
-        brightness_step = -BRIGHTNESS_STEP;
+        if (next >= 255)
+        {
+            brightness = 255;
+            brightness_step = -BRIGHTNESS_STEP;
+        }
+        else if (next <= 0)
+        {
+            brightness = 0;
+            brightness_step = BRIGHTNESS_STEP;
+        }
+        else
+        {
+            brightness = (uint8_t)next;
+        }
+        pwm_led_set_duty(brightness);
+        mutex_unlock(m);
+        task_delay_ms(20);
     }
-    else if (next <= 0)
-    {
-        brightness = 0;
-        brightness_step = BRIGHTNESS_STEP;
-    }
-    else
-    {
-        brightness = (uint8_t)next;
-    }
-
-    pwm_led_set_duty(brightness);
 }
 
-void led_breathe_task_cleanup(void){
+void led_breathe_task_cleanup(void)
+{
     pwm_led_set_duty(0);
     brightness = 0;
     brightness_step = BRIGHTNESS_STEP;
 }
 
+void led_pattern_task(void)
+{
+    task_entry_t *t = get_task_by_id(led_pattern_task_id);
+    mutex_t *m = determine_mutex(led_pattern_task_id);
+
+    while (1)
+    {
+        if (m != NULL && mutex_lock(m, led_pattern_task_id))
+        {
+            for (step = 0; step < LED_PATTERN_STEPS; step++)
+            {
+                PORTB = (PORTB & (uint8_t)~COUNTER_MASK) |
+                        (uint8_t)(pattern[step] << COUNTER_BIT0);
+
+                uint32_t step_wake = timer_get_hardware_ticks() + MS_TO_TICKS(100);
+                sleep_until(step_wake);
+            }
+
+            PORTB &= (uint8_t)~COUNTER_MASK;
+            step = 0;
+            mutex_unlock(m);
+
+            if (t != NULL)
+            {
+                t->state = TASK_BLOCKED;
+            }
+            task_yield();
+        }
+        else
+        {
+            task_yield();
+        }
+    }
+}
+
+void led_pattern_cleanup(void)
+{
+    PORTB &= (uint8_t)~COUNTER_MASK;
+    step = 0;
+}
+
+void idle_task(void)
+{
+    while (1)
+    {
+        uint32_t time = determine_wake_up_time();
+        sleep_until(time);
+        task_yield();
+    }
+}
+
+void supervisor_task(void)
+{
+    task_entry_t *self = get_task_by_id(supervisor_task_id);
+    while (1)
+    {
+        if (trigger_led_pattern_requested == 1)
+        {
+            trigger_led_pattern_requested = 0;
+            task_entry_t *t = get_task_by_id(led_pattern_task_id);
+            if (t != NULL && t->state == TASK_BLOCKED)
+            {
+                t->next_run = timer_get_hardware_ticks();
+                t->state = TASK_READY;
+            }
+        }
+        if (disable_breathing_requested == 2)
+        {
+            disable_breathing_requested = 0;
+            if (add_and_verify_task(&breathe_task_config, &breathe_task_id) != SCHEDULER_OK)
+            {
+                trigger_error_pulse();
+            }
+        }
+        if (self != NULL)
+            self->state = TASK_BLOCKED;
+        task_yield();
+    }
+}
+
+void error_led_task(void)
+{
+    mutex_t *m = determine_mutex(error_led_task_id);
+    task_entry_t *self = get_task_by_id(error_led_task_id);
+    while (1)
+    {
+        while (m != NULL && !mutex_lock(m, error_led_task_id))
+        {
+            task_yield();
+        }
+        PORTB |= (1U << ERROR_LED);
+        mutex_unlock(m);
+
+        task_delay_ms(1000);
+
+        while (m != NULL && !mutex_lock(m, error_led_task_id))
+        {
+            task_yield();
+        }
+        PORTB &= ~(1U << ERROR_LED);
+        mutex_unlock(m);
+
+        if (self != NULL)
+        {
+            self->state = TASK_BLOCKED;
+        }
+        task_yield();
+    }
+}
+
+void trigger_error_pulse(void)
+{
+    task_entry_t *err_task = get_task_by_id(error_led_task_id);
+    if (err_task != NULL)
+    {
+        err_task->next_run = timer_get_hardware_ticks();
+        err_task->state = TASK_READY;
+        task_yield();
+    }
+}
 
 const task_config_t counter_task_config = {
     .function = counter_task,
@@ -79,8 +236,8 @@ const task_config_t counter_task_config = {
     .interval_ms = COUNTER_INTERVAL_MS,
     .policy = SCHEDULE_FIXED_RATE,
     .priority = 2,
-    .port = B
-    };
+    .port = B,
+    .multi_stage = 0};
 
 const task_config_t blink_task_config = {
     .function = blink_task,
@@ -88,8 +245,8 @@ const task_config_t blink_task_config = {
     .interval_ms = BLINK_INTERVAL_MS,
     .policy = SCHEDULE_FROM_LAST_RUN,
     .priority = 2,
-    .port = B
-    };
+    .port = B,
+    .multi_stage = 0};
 
 const task_config_t breathe_task_config = {
     .function = led_breathe_task,
@@ -97,5 +254,41 @@ const task_config_t breathe_task_config = {
     .interval_ms = BRIGHTNESS_UPDATE_MS,
     .policy = SCHEDULE_FIXED_RATE,
     .priority = 1,
-    .port = D
-    };
+    .port = D,
+    .multi_stage = 0};
+
+const task_config_t led_pattern_task_config = {
+    .function = led_pattern_task,
+    .cleanup = led_pattern_cleanup,
+    .interval_ms = 100,
+    .policy = SCHEDULE_FIXED_RATE,
+    .priority = 2,
+    .port = B,
+    .multi_stage = 1};
+
+const task_config_t idle_task_config = {
+    .function = idle_task,
+    .cleanup = NULL,
+    .interval_ms = 0,
+    .policy = SCHEDULE_FROM_LAST_RUN,
+    .priority = 0,
+    .port = Z,
+    .multi_stage = 0};
+
+const task_config_t supervisor_task_config = {
+    .function = supervisor_task,
+    .cleanup = NULL,
+    .interval_ms = 50,
+    .policy = SCHEDULE_FROM_LAST_RUN,
+    .priority = 5,
+    .port = Z,
+    .multi_stage = 0};
+
+const task_config_t error_led_task_config = {
+    .function = error_led_task,
+    .cleanup = NULL,
+    .interval_ms = 1000,
+    .policy = SCHEDULE_FROM_LAST_RUN,
+    .priority = 3,
+    .port = B,
+    .multi_stage = 0};
